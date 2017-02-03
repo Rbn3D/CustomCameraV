@@ -8,9 +8,12 @@
 ### Features ###
 
 * Optimized for drifting
-* Allows shooting and look around (with mouse)
+* Allows aim/shooting and look around (with both mouse and gamepad)
 * Advanced system for update camera position and rotation. Inspired in top racing games!
-* Customizble
+* Keeps radar rotation in sync with camera rotation
+* Nice feeling of speed
+* Supports big vehicles, and even vehicles towing another vehicles
+* Customizble settings via ini file (TODO)
 
 ### Requirements ###
 * GTA V for PC (obviously)
