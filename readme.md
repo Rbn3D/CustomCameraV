@@ -3,7 +3,7 @@
 
 ##A custom vehicle camera system for Grand Theft Auto V##
 
-#### Warning: This project is a Work In Progress. Does not have releases at the moment, and may contain some bugs. Feel free to compile and test.####
+#### Warning: This project is a Work In Progress and may contain some bugs. Feel free to compile and test.####
 
 ### Features ###
 
@@ -24,7 +24,24 @@
 
 [![Custom Camera V](http://img.youtube.com/vi/pon_B0Ia_gU/0.jpg)](http://www.youtube.com/watch?v=pon_B0Ia_gU "Custom Camera V")
 
-### Usage ###
-* By default, script is enabled, so if you enter in any vehicle you will have custom camera inmediately.
+### Download ###
 
-* Press numpad 1 to switch between default camera and Custom Camera V
+https://www.gta5-mods.com/scripts/custom-camera-v
+
+### Usage ###
+
+* While on a vechicle (all vehicles supported except planes, helis and boats), press numpad1 to enable/disable Custom Camera V
+* Shooting: aim and shoot just like in the built-in camera (mouse and gamepad supported)
+* Free look: look-around just like in the built-in camera (mouse and gamepad supported)
+
+### Recommender third party mods to use with Custom Camera V ###
+
+* Inverse power script by ikt
+* A handling mod, such as Realistic Driving V or RDE 3.0 handling file
+
+
+### Issues? ###
+
+Report issues and errors here:
+
+https://github.com/Rbn3D/CustomCameraV/issues
