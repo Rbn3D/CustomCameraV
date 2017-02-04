@@ -22,7 +22,7 @@
 
 ### The script in action (video) ###
 
-(comming soon)
+[![Custom Camera V](http://img.youtube.com/vi/pon_B0Ia_gU/0.jpg)](http://www.youtube.com/watch?v=pon_B0Ia_gU "Custom Camera V")
 
 ### Usage ###
 * By default, script is enabled, so if you enter in any vehicle you will have custom camera inmediately.
