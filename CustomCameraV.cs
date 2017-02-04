@@ -6,6 +6,8 @@ using GTA.Native;
 using GTA.Math;
 using System.Windows.Forms;
 using Glide;
+using System.Threading;
+using System.Globalization;
 
 public class CustomCameraV : Script
 {
@@ -82,7 +84,7 @@ public class CustomCameraV : Script
     public float cameraRotationSpeedLowSpeed = 0.4f;
 
     // pre smooth position and rotation before interpolate (0 to 1)
-    public float generalMovementSharphness = 0.002f;
+    public float generalMovementSpeed = 0.002f;
 
     //// Should camera be centered after the vehicle even if stopped?
     //public bool autocenterOnNearlyStopped = false;
@@ -98,6 +100,27 @@ public class CustomCameraV : Script
         this.KeyUp += onKeyUp;
         this.KeyDown += onKeyDown;
         this.Aborted += onAborted;
+
+        // Always use invariant culture (dot decimal separator)
+        Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
+
+        this.LoadSettings();
+    }
+
+    private void LoadSettings()
+    {
+        // general
+        customCamEnabled = Settings.GetValue<bool>("general", "enabled", customCamEnabled);
+        distanceOffset = Settings.GetValue<float>("general", "distanceOffset", distanceOffset);
+        heightOffset = Settings.GetValue<float>("general", "heightOffset", heightOffset);
+        fov = Settings.GetValue<float>("general", "fov", fov);
+
+        // advanced
+        lookFrontOffset = Settings.GetValue<float>("advanced", "lookFrontOffset", lookFrontOffset);
+        lookFrontOffsetLowSpeed = Settings.GetValue<float>("advanced", "lookFrontOffsetLowSpeed", lookFrontOffsetLowSpeed);
+        cameraRotationSpeed = Settings.GetValue<float>("advanced", "cameraRotationSpeed", cameraRotationSpeed);
+        cameraRotationSpeedLowSpeed = Settings.GetValue<float>("advanced", "cameraRotationSpeedLowSpeed", cameraRotationSpeedLowSpeed);
+        generalMovementSpeed = Settings.GetValue<float>("advanced", "generalMovementSpeed", generalMovementSpeed);
     }
 
     private void onAborted(object sender, EventArgs e)
@@ -269,7 +292,7 @@ public class CustomCameraV : Script
         //    tweener.Tween<CustomCameraV>(this, new { smoothIsMouseLooking = 0f }, 0.25f, 0f).Ease(Ease.SineInOut);
         //}
 
-        if (!isMouseLooking && smoothIsMouseLooking <= 0.00001f)
+        if (!isMouseLooking && smoothIsMouseLooking <= 0.000001f)
         {
             // When we are not looking around with mouse, sync gamplaycam heading with mod camera, so radar always is shown in the right rotation
             GameplayCamera.RelativeHeading = mainCamera.Rotation.Z - veh.Rotation.Z;
@@ -324,7 +347,7 @@ public class CustomCameraV : Script
 
         //currentPos = veh.Position - (veh.ForwardVector * (currentVehicleLongitude + distanceOffset)) + (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
         //currentRotation = veh.Quaternion;
-        generalFixedvsSmoothMovement = generalMovementSharphness;
+        generalFixedvsSmoothMovement = generalMovementSpeed;
         smoothVelocity = veh.Velocity.Normalized;
         wantedPosVelocity = veh.Rotation;
 
