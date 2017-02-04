@@ -13,7 +13,7 @@
 * Keeps radar rotation in sync with camera rotation
 * Nice feeling of speed
 * Supports big vehicles, and even vehicles towing another vehicles
-* Customizble settings via ini file (TODO)
+* Customizble settings via ini file
 
 ### Requirements ###
 * GTA V for PC (obviously)
