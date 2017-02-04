@@ -40,7 +40,7 @@ public class CustomCameraV : Script
     private Tween mouseLookTimer;
     private float smoothIsMouseLooking = 0f;
 
-    private float smoothIsNotRearGear = 1f;
+    //private float smoothIsNotRearGear = 1f;
 
     private Vector3 wantedPosVelocity = new Vector3();
 
@@ -82,7 +82,7 @@ public class CustomCameraV : Script
     public float cameraRotationSpeedLowSpeed = 0.4f;
 
     // pre smooth position and rotation before interpolate (0 to 1)
-    public float generalMovementSharphness = 0.012f;
+    public float generalMovementSharphness = 0.002f;
 
     //// Should camera be centered after the vehicle even if stopped?
     //public bool autocenterOnNearlyStopped = false;
@@ -187,7 +187,7 @@ public class CustomCameraV : Script
     private void ResetSmoothValues(Vehicle veh)
     {
         smoothFixedVsVelocity = 0f;
-        smoothIsNotRearGear = 1f;
+        //smoothIsNotRearGear = 1f;
         smoothVelocity = Vector3.Zero;
         smoothVelocitySmDamp = Vector3.Zero;
         tempSmoothVsVl = 0.025f;
