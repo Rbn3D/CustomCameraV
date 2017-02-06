@@ -23,13 +23,12 @@ public class CustomCameraV : Script
     private float currentVehicleHeight;
     private float currentVehicleLongitude;
 
-    private float realDelta;
+    private float deltaTime;
 
     private bool customCamEnabled = true;
 
     // How fast lerp between rear and velocity cam position when neccesary
     private float fixedVsVelocitySpeed = 2.5f;
-    private float generalFixedvsSmoothMovement;
     private Vector3 smoothVelocity;
     private Vector3 smoothVelocitySmDamp = new Vector3();
 
@@ -53,8 +52,6 @@ public class CustomCameraV : Script
 
     private bool firstVeh = true;
 
-    private float LastScriptFrameRunTime = 0.01f;
-
     public float fov = 75f;
     public float distanceOffset = 2.4f;
     public float heightOffset = 0.28f;
@@ -76,7 +73,7 @@ public class CustomCameraV : Script
     public float nearlySttopedSpeed = 2.35f;
 
     // How closely the camera follows the car's position. The lower the value, the more the camera will lag behind.
-    public float cameraStickiness = 17.0f;
+    public float cameraStickiness = 17f;
 
     // How closely the camera matches the car's rotation. The lower the value, the smoother the camera rotations, but too much results in not being able to see where you're going.
     public float cameraRotationSpeed = 1.0f;
@@ -84,7 +81,7 @@ public class CustomCameraV : Script
     public float cameraRotationSpeedLowSpeed = 0.4f;
 
     // pre smooth position and rotation before interpolate (0 to 1)
-    public float generalMovementSpeed = 0.002f;
+    public float generalMovementSpeed = 0.5f;
 
     //// Should camera be centered after the vehicle even if stopped?
     //public bool autocenterOnNearlyStopped = false;
@@ -93,6 +90,7 @@ public class CustomCameraV : Script
 
     // Notify about mod enabled of first vehicle enter?
     public bool notifyModEnabled = true;
+    
 
     public CustomCameraV()
     {
@@ -121,6 +119,9 @@ public class CustomCameraV : Script
         cameraRotationSpeed = Settings.GetValue<float>("advanced", "cameraRotationSpeed", cameraRotationSpeed);
         cameraRotationSpeedLowSpeed = Settings.GetValue<float>("advanced", "cameraRotationSpeedLowSpeed", cameraRotationSpeedLowSpeed);
         generalMovementSpeed = Settings.GetValue<float>("advanced", "generalMovementSpeed", generalMovementSpeed);
+
+        // Sanitize
+        generalMovementSpeed = Mathr.Clamp(generalMovementSpeed, 0.1f, 10f);
     }
 
     private void onAborted(object sender, EventArgs e)
@@ -130,10 +131,10 @@ public class CustomCameraV : Script
 
     public void OnTick(object sender, EventArgs e)
     {
-        var dateStartScript = DateTime.Now;
+        //var dateStartScript = DateTime.Now;
 
-        // delta (including script last frame run time to avoid stuttering) - The result is (almost!!) perfect smooth
-        realDelta = Game.LastFrameTime + LastScriptFrameRunTime;
+        //deltaTime = Function.Call<float>(Hash.TIMESTEP);
+        deltaTime = Game.LastFrameTime;
 
         if (init && customCamEnabled)
         {
@@ -188,7 +189,7 @@ public class CustomCameraV : Script
 
                 Game.DisableControlThisFrame(2, GTA.Control.NextCamera);
 
-                mainCamera.Position = Vector3.Lerp(rearCameraTransform.position, cameraMouseLooking.position, smoothIsMouseLooking);
+                mainCamera.Position = Vector3.Lerp(rearCameraTransform.position, cameraMouseLooking.position, Mathr.Clamp01(smoothIsMouseLooking));
                 mainCamera.Rotation = Mathr.QuaternionNLerp(rearCameraTransform.quaternion, cameraMouseLooking.quaternion, smoothIsMouseLooking).ToEulerAngles();
                 //mainCamera.FieldOfView = Mathr.Lerp(fov, fov - 2.5f, smoothIsMouseLooking);
             }
@@ -202,9 +203,7 @@ public class CustomCameraV : Script
             ExitCustomCameraView();
 
         //tweener.Update(realDelta);
-        tweener.Update(realDelta);
-
-        LastScriptFrameRunTime = (float)(DateTime.Now - dateStartScript).TotalSeconds;
+        tweener.Update(deltaTime);
     }
 
     private void ResetSmoothValues(Vehicle veh)
@@ -322,10 +321,11 @@ public class CustomCameraV : Script
         dbgPanel.watchedVariables.Add("MouseMoving", () => { return isMouseMoving; });
         dbgPanel.watchedVariables.Add("MouseLooking", () => { return isMouseLooking; });
         dbgPanel.watchedVariables.Add("MouseLookingSmooth", () => { return smoothIsMouseLooking; });
-        dbgPanel.watchedVariables.Add("generalFixedvsSmoothMovement", () => { return generalFixedvsSmoothMovement; });
-        dbgPanel.watchedVariables.Add("View mode", () => { return Function.Call<int>(Hash.GET_FOLLOW_VEHICLE_CAM_VIEW_MODE); });
-        dbgPanel.watchedVariables.Add("Delta (custom impl)",() => { return realDelta; });
-        dbgPanel.watchedVariables.Add("Script exec. time", () => { return LastScriptFrameRunTime; });
+        dbgPanel.watchedVariables.Add("generalMovementSpeed", () => { return generalMovementSpeed; });
+        dbgPanel.watchedVariables.Add("Delta (custom impl)",() => { return deltaTime; });
+        dbgPanel.watchedVariables.Add("TIMESTEP", () => { return Function.Call<float>(Hash.TIMESTEP); });
+        dbgPanel.watchedVariables.Add("Interval", () => { return Interval; });
+        dbgPanel.watchedVariables.Add("veh.Position", () => { return veh.Position; });
     }
 
     private void drawDebugStats(Vehicle veh)
@@ -347,7 +347,6 @@ public class CustomCameraV : Script
 
         //currentPos = veh.Position - (veh.ForwardVector * (currentVehicleLongitude + distanceOffset)) + (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
         //currentRotation = veh.Quaternion;
-        generalFixedvsSmoothMovement = generalMovementSpeed;
         smoothVelocity = veh.Velocity.Normalized;
         wantedPosVelocity = veh.Rotation;
 
@@ -358,8 +357,8 @@ public class CustomCameraV : Script
     private Transform UpdateCameraRear(Ped player, Vehicle veh)
     {
         // smooth out current rotation and position
-        currentRotation = Mathr.QuaternionNLerp(currentRotation, Mathr.QuaternionFromEuler(mainCamera.Rotation), generalFixedvsSmoothMovement* realDelta);
-        currentPos = Vector3.Lerp(currentPos, mainCamera.Position - (Vector3.WorldUp * (heightOffset + currentVehicleHeight)), generalFixedvsSmoothMovement * realDelta);
+        currentRotation = Mathr.QuaternionNLerp(currentRotation, Mathr.QuaternionFromEuler(mainCamera.Rotation), generalMovementSpeed * deltaTime);
+        currentPos = Vector3.Lerp(currentPos, mainCamera.Position - (Vector3.WorldUp * (heightOffset + currentVehicleHeight)), Mathr.Clamp01(generalMovementSpeed * deltaTime));
 
         Quaternion look;
         var wantedPos = veh.Position;
@@ -372,21 +371,17 @@ public class CustomCameraV : Script
         // should camera be attached to vehicle's back or back his velocity
         var fixedVsVelocity = getFixedVsVelocityFactor(veh);
 
-        //smoothIsNotRearGear = Mathr.Lerp(smoothIsNotRearGear, Mathr.Clamp01(veh.CurrentGear), generalMovementSmoothness * realDelta);
-
-        //var carBack = Vector3.Lerp(Vector3.RelativeFront, Vector3.RelativeBack, 1f - smoothIsRearGear).Normalized;
-
         // Compute camera position rear the vechicle
         var wantedPosFixed = wantedPos - veh.Quaternion * Vector3.RelativeFront * ((distanceOffset + currentVehicleLongitude / 2f) + towedVehicleLongitude);
 
         // smooth out velocity
-        smoothVelocity = Mathr.Vector3SmoothDamp(smoothVelocity, veh.Velocity.Normalized, ref smoothVelocitySmDamp, generalFixedvsSmoothMovement, 9999999f, realDelta);
+        smoothVelocity = Mathr.Vector3SmoothDamp(smoothVelocity, veh.Velocity.Normalized, ref smoothVelocitySmDamp, generalMovementSpeed, 9999999f, deltaTime);
         // Compute camera postition rear the direction of the vehcle
         if(veh.Speed >= stoppedSpeed)
-            wantedPosVelocity = wantedPos + Mathr.QuaternionLookRotation(smoothVelocity) * Vector3.RelativeBottom * (distanceOffset + currentVehicleLongitude / 2f);
+            wantedPosVelocity = wantedPos + Mathr.QuaternionLookRotation(smoothVelocity) * Vector3.RelativeBottom * ((distanceOffset + currentVehicleLongitude / 2f) + towedVehicleLongitude);
 
         // Smooth factor between two above cam positions
-        smoothFixedVsVelocity = Mathr.Lerp(smoothFixedVsVelocity, fixedVsVelocity, fixedVsVelocitySpeed * realDelta);
+        smoothFixedVsVelocity = Mathr.Lerp(smoothFixedVsVelocity, fixedVsVelocity, fixedVsVelocitySpeed * deltaTime);
 
         if(!isCycleOrByke)
         {
@@ -395,17 +390,17 @@ public class CustomCameraV : Script
         }
 
         // Compute final camera position
-        wantedPos = Vector3.Lerp(wantedPosFixed, wantedPosVelocity, smoothFixedVsVelocity);
+        wantedPos = Vector3.Lerp(wantedPosFixed, wantedPosVelocity, Mathr.Clamp01(smoothFixedVsVelocity));
 
         mainCamera.PointAt(veh.Position + (Vector3.WorldUp * (heightOffset + currentVehicleHeight)) + (veh.ForwardVector * computeLookFrontOffset(veh)) );
         look = Quaternion.Euler(mainCamera.Rotation);
-        currentPos = Vector3.Lerp(currentPos, wantedPos, cameraStickiness * realDelta);
+        currentPos = Vector3.Lerp(currentPos, wantedPos, Mathr.Clamp01(cameraStickiness * deltaTime));
 
         //var speedDelta = ((veh.Speed / 200f) + 0.5f);
 
         // Rotate the camera towards the velocity vector.
-        var finalCamRotationSpeed = Mathr.Lerp(cameraRotationSpeedLowSpeed, cameraRotationSpeed, Mathr.Clamp01((veh.Speed / lowSpeedLimit) * realDelta * 51f));
-        look = Mathr.QuaternionNLerp(currentRotation, look, finalCamRotationSpeed * realDelta);
+        var finalCamRotationSpeed = Mathr.Lerp(cameraRotationSpeedLowSpeed, cameraRotationSpeed, (veh.Speed / lowSpeedLimit) * deltaTime * 51f);
+        look = Mathr.QuaternionNLerp(currentRotation, look, finalCamRotationSpeed * deltaTime);
 
         var transform = new Transform();
 
@@ -629,7 +624,7 @@ public static class Mathr
     // Cheaper than Slerp
     public static Quaternion QuaternionNLerp(Quaternion start, Quaternion end, float ammount)
     {
-        return QuaternionFromEuler(Vector3.Lerp(start.ToEulerAngles(), end.ToEulerAngles(), ammount).Normalized);
+        return QuaternionFromEuler(Vector3.Lerp(start.ToEulerAngles(), end.ToEulerAngles(), Mathr.Clamp01(ammount)).Normalized);
     }
 
     public static float SmoothStep(float from, float to, float t)
@@ -650,7 +645,7 @@ public static class Mathr
 
     public static float Lerp(float value1, float value2, float amount)
     {
-        return value1 + (value2 - value1) * amount;
+        return value1 + (value2 - value1) * Mathr.Clamp01(amount);
     }
 
     public static float InverseLerp(float from, float to, float value)
