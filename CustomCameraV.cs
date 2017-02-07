@@ -23,13 +23,10 @@ public class CustomCameraV : Script
     private float currentVehicleHeight;
     private float currentVehicleLongitude;
 
-    private float realDelta;
-
     private bool customCamEnabled = true;
 
     // How fast lerp between rear and velocity cam position when neccesary
     private float fixedVsVelocitySpeed = 2.5f;
-    private float generalFixedvsSmoothMovement;
     private Vector3 smoothVelocity;
     private Vector3 smoothVelocitySmDamp = new Vector3();
 
@@ -53,8 +50,6 @@ public class CustomCameraV : Script
 
     private bool firstVeh = true;
 
-    private float LastScriptFrameRunTime = 0.01f;
-
     public float fov = 75f;
     public float distanceOffset = 2.4f;
     public float heightOffset = 0.28f;
@@ -76,7 +71,7 @@ public class CustomCameraV : Script
     public float nearlySttopedSpeed = 2.35f;
 
     // How closely the camera follows the car's position. The lower the value, the more the camera will lag behind.
-    public float cameraStickiness = 17.0f;
+    public float cameraStickiness = 17f;
 
     // How closely the camera matches the car's rotation. The lower the value, the smoother the camera rotations, but too much results in not being able to see where you're going.
     public float cameraRotationSpeed = 1.0f;
@@ -84,7 +79,9 @@ public class CustomCameraV : Script
     public float cameraRotationSpeedLowSpeed = 0.4f;
 
     // pre smooth position and rotation before interpolate (0 to 1)
-    public float generalMovementSpeed = 0.002f;
+    public float generalMovementSpeed = 0.5f;
+
+    public float responsivenessMultiplier = 1.1f;
 
     //// Should camera be centered after the vehicle even if stopped?
     //public bool autocenterOnNearlyStopped = false;
@@ -93,6 +90,10 @@ public class CustomCameraV : Script
 
     // Notify about mod enabled of first vehicle enter?
     public bool notifyModEnabled = true;
+
+    public bool increaseDistanceAtHighSpeed = true;
+    public float maxHighSpeedDistanceIncrement = 2.4f;
+    public float maxHighSpeed = 80f;
 
     public CustomCameraV()
     {
@@ -114,6 +115,7 @@ public class CustomCameraV : Script
         distanceOffset = Settings.GetValue<float>("general", "distanceOffset", distanceOffset);
         heightOffset = Settings.GetValue<float>("general", "heightOffset", heightOffset);
         fov = Settings.GetValue<float>("general", "fov", fov);
+        increaseDistanceAtHighSpeed = Settings.GetValue<bool>("general", "increaseDistanceAtHighSpeed", increaseDistanceAtHighSpeed);
 
         // advanced
         lookFrontOffset = Settings.GetValue<float>("advanced", "lookFrontOffset", lookFrontOffset);
@@ -121,6 +123,9 @@ public class CustomCameraV : Script
         cameraRotationSpeed = Settings.GetValue<float>("advanced", "cameraRotationSpeed", cameraRotationSpeed);
         cameraRotationSpeedLowSpeed = Settings.GetValue<float>("advanced", "cameraRotationSpeedLowSpeed", cameraRotationSpeedLowSpeed);
         generalMovementSpeed = Settings.GetValue<float>("advanced", "generalMovementSpeed", generalMovementSpeed);
+
+        // Sanitize
+        generalMovementSpeed = Mathr.Clamp(generalMovementSpeed, 0.1f, 10f);
     }
 
     private void onAborted(object sender, EventArgs e)
@@ -130,11 +135,6 @@ public class CustomCameraV : Script
 
     public void OnTick(object sender, EventArgs e)
     {
-        var dateStartScript = DateTime.Now;
-
-        // delta (including script last frame run time to avoid stuttering) - The result is (almost!!) perfect smooth
-        realDelta = Game.LastFrameTime + LastScriptFrameRunTime;
-
         if (init && customCamEnabled)
         {
             init = false;
@@ -188,9 +188,10 @@ public class CustomCameraV : Script
 
                 Game.DisableControlThisFrame(2, GTA.Control.NextCamera);
 
-                mainCamera.Position = Vector3.Lerp(rearCameraTransform.position, cameraMouseLooking.position, smoothIsMouseLooking);
+                mainCamera.Position = Vector3.Lerp(rearCameraTransform.position, cameraMouseLooking.position, Mathr.Clamp01(smoothIsMouseLooking));
                 mainCamera.Rotation = Mathr.QuaternionNLerp(rearCameraTransform.quaternion, cameraMouseLooking.quaternion, smoothIsMouseLooking).ToEulerAngles();
                 //mainCamera.FieldOfView = Mathr.Lerp(fov, fov - 2.5f, smoothIsMouseLooking);
+
             }
         }
         else if(camSet)
@@ -202,9 +203,41 @@ public class CustomCameraV : Script
             ExitCustomCameraView();
 
         //tweener.Update(realDelta);
-        tweener.Update(realDelta);
+        tweener.Update(getDeltaTime());
+    }
 
-        LastScriptFrameRunTime = (float)(DateTime.Now - dateStartScript).TotalSeconds;
+    private void setupDebugStats(Vehicle veh)
+    {
+        dbgPanel = new DebugPanel();
+
+        dbgPanel.watchedVariables.Add("Veh Speed", () => { return veh.Speed; });
+        dbgPanel.watchedVariables.Add("Veh vel. mag", () => { return Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f); });
+        dbgPanel.watchedVariables.Add("Smooth fixed vs velocity", () => { return smoothFixedVsVelocity; });
+        dbgPanel.watchedVariables.Add("Current gear", () => { return veh.CurrentGear; });
+        dbgPanel.watchedVariables.Add("LookFrontOffset", () => { return computeLookFrontOffset(veh, Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f)); });
+        dbgPanel.watchedVariables.Add("Height", () => { return currentVehicleHeight; });
+        dbgPanel.watchedVariables.Add("Longitude", () => { return currentVehicleLongitude; });
+        dbgPanel.watchedVariables.Add("MouseX", () => { return InputR.MouseX; });
+        dbgPanel.watchedVariables.Add("MouseY", () => { return InputR.MouseY; });
+        dbgPanel.watchedVariables.Add("MouseMoving", () => { return isMouseMoving; });
+        dbgPanel.watchedVariables.Add("MouseLooking", () => { return isMouseLooking; });
+        dbgPanel.watchedVariables.Add("MouseLookingSmooth", () => { return smoothIsMouseLooking; });
+        dbgPanel.watchedVariables.Add("generalMovementSpeed", () => { return generalMovementSpeed; });
+        dbgPanel.watchedVariables.Add("Delta (custom impl)", () => { return getDeltaTime(); });
+        dbgPanel.watchedVariables.Add("TIMESTEP", () => { return Function.Call<float>(Hash.TIMESTEP); });
+        dbgPanel.watchedVariables.Add("Interval", () => { return Interval; });
+        dbgPanel.watchedVariables.Add("veh.Position", () => { return veh.Position; });
+        dbgPanel.watchedVariables.Add("veh.Speed / maxHighSpeed", () => { return veh.Speed / maxHighSpeed; });
+    }
+
+    private void drawDebugStats(Vehicle veh)
+    {
+        dbgPanel.Draw();
+    }
+
+    private float getDeltaTime()
+    {
+        return Function.Call<float>(Hash.TIMESTEP);
     }
 
     private void ResetSmoothValues(Vehicle veh)
@@ -307,32 +340,6 @@ public class CustomCameraV : Script
         tweener.Tween<CustomCameraV>(this, new { smoothIsMouseLooking = 0f }, 0.25f, 0f).Ease(Ease.SineInOut);
     }
 
-    private void setupDebugStats(Vehicle veh)
-    {
-        dbgPanel = new DebugPanel();
-
-        dbgPanel.watchedVariables.Add("Veh Speed", () => { return veh.Speed; });
-        dbgPanel.watchedVariables.Add("Smooth fixed vs velocity", () => { return smoothFixedVsVelocity; });
-        dbgPanel.watchedVariables.Add("Current gear", () => { return veh.CurrentGear; });
-        dbgPanel.watchedVariables.Add("LookFrontOffset", () => { return computeLookFrontOffset(veh); });
-        dbgPanel.watchedVariables.Add("Height", () => { return currentVehicleHeight; });
-        dbgPanel.watchedVariables.Add("Longitude", () => { return currentVehicleLongitude; });
-        dbgPanel.watchedVariables.Add("MouseX", () => { return InputR.MouseX; });
-        dbgPanel.watchedVariables.Add("MouseY", () => { return InputR.MouseY; });
-        dbgPanel.watchedVariables.Add("MouseMoving", () => { return isMouseMoving; });
-        dbgPanel.watchedVariables.Add("MouseLooking", () => { return isMouseLooking; });
-        dbgPanel.watchedVariables.Add("MouseLookingSmooth", () => { return smoothIsMouseLooking; });
-        dbgPanel.watchedVariables.Add("generalFixedvsSmoothMovement", () => { return generalFixedvsSmoothMovement; });
-        dbgPanel.watchedVariables.Add("View mode", () => { return Function.Call<int>(Hash.GET_FOLLOW_VEHICLE_CAM_VIEW_MODE); });
-        dbgPanel.watchedVariables.Add("Delta (custom impl)",() => { return realDelta; });
-        dbgPanel.watchedVariables.Add("Script exec. time", () => { return LastScriptFrameRunTime; });
-    }
-
-    private void drawDebugStats(Vehicle veh)
-    {
-        dbgPanel.Draw();
-    }
-
     private bool isVehicleSuitableForCustomCamera(Vehicle veh)
     {
         return veh.ClassType != VehicleClass.Trains && veh.ClassType != VehicleClass.Planes && veh.ClassType != VehicleClass.Helicopters && veh.ClassType != VehicleClass.Boats;
@@ -347,7 +354,6 @@ public class CustomCameraV : Script
 
         //currentPos = veh.Position - (veh.ForwardVector * (currentVehicleLongitude + distanceOffset)) + (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
         //currentRotation = veh.Quaternion;
-        generalFixedvsSmoothMovement = generalMovementSpeed;
         smoothVelocity = veh.Velocity.Normalized;
         wantedPosVelocity = veh.Rotation;
 
@@ -357,9 +363,13 @@ public class CustomCameraV : Script
 
     private Transform UpdateCameraRear(Ped player, Vehicle veh)
     {
+        var fullHeightOffset = (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
+
         // smooth out current rotation and position
-        currentRotation = Mathr.QuaternionNLerp(currentRotation, Mathr.QuaternionFromEuler(mainCamera.Rotation), generalFixedvsSmoothMovement* realDelta);
-        currentPos = Vector3.Lerp(currentPos, mainCamera.Position - (Vector3.WorldUp * (heightOffset + currentVehicleHeight)), generalFixedvsSmoothMovement * realDelta);
+        currentRotation = Mathr.QuaternionNLerp(currentRotation, Mathr.QuaternionFromEuler(mainCamera.Rotation), (responsivenessMultiplier * generalMovementSpeed) * getDeltaTime());
+        currentPos = Vector3.Lerp(currentPos, mainCamera.Position - fullHeightOffset, Mathr.Clamp01((responsivenessMultiplier * generalMovementSpeed) * getDeltaTime()));
+
+        var speedCoeff = Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f);
 
         Quaternion look;
         var wantedPos = veh.Position;
@@ -370,62 +380,73 @@ public class CustomCameraV : Script
             towedVehicleLongitude = veh.TowedVehicle.Model.GetDimensions().Y;
 
         // should camera be attached to vehicle's back or back his velocity
-        var fixedVsVelocity = getFixedVsVelocityFactor(veh);
+        var fixedVsVelocity = getFixedVsVelocityFactor(veh, speedCoeff);
 
-        //smoothIsNotRearGear = Mathr.Lerp(smoothIsNotRearGear, Mathr.Clamp01(veh.CurrentGear), generalMovementSmoothness * realDelta);
-
-        //var carBack = Vector3.Lerp(Vector3.RelativeFront, Vector3.RelativeBack, 1f - smoothIsRearGear).Normalized;
+        var fullLongitudeOffset = (distanceOffset + currentVehicleLongitude / 2f) + towedVehicleLongitude;
 
         // Compute camera position rear the vechicle
-        var wantedPosFixed = wantedPos - veh.Quaternion * Vector3.RelativeFront * ((distanceOffset + currentVehicleLongitude / 2f) + towedVehicleLongitude);
+        var wantedPosFixed = wantedPos - veh.Quaternion * Vector3.RelativeFront * fullLongitudeOffset;
 
         // smooth out velocity
-        smoothVelocity = Mathr.Vector3SmoothDamp(smoothVelocity, veh.Velocity.Normalized, ref smoothVelocitySmDamp, generalFixedvsSmoothMovement, 9999999f, realDelta);
+        smoothVelocity = Mathr.Vector3SmoothDamp(smoothVelocity, veh.Velocity.Normalized, ref smoothVelocitySmDamp, generalMovementSpeed, 9999999f, responsivenessMultiplier * getDeltaTime());
         // Compute camera postition rear the direction of the vehcle
-        if(veh.Speed >= stoppedSpeed)
-            wantedPosVelocity = wantedPos + Mathr.QuaternionLookRotation(smoothVelocity) * Vector3.RelativeBottom * (distanceOffset + currentVehicleLongitude / 2f);
+        if(speedCoeff >= stoppedSpeed)
+            wantedPosVelocity = wantedPos + Mathr.QuaternionLookRotation(smoothVelocity) * Vector3.RelativeBottom * fullLongitudeOffset;
 
         // Smooth factor between two above cam positions
-        smoothFixedVsVelocity = Mathr.Lerp(smoothFixedVsVelocity, fixedVsVelocity, fixedVsVelocitySpeed * realDelta);
+        smoothFixedVsVelocity = Mathr.Lerp(smoothFixedVsVelocity, fixedVsVelocity, (responsivenessMultiplier * fixedVsVelocitySpeed) * getDeltaTime());
 
         if(!isCycleOrByke)
         {
-            tempSmoothVsVl = Mathr.Lerp(tempSmoothVsVl, Mathr.Clamp(veh.Speed / 2.3f, 0.025f, 1f), (fixedVsVelocitySpeed / 20f));
+            tempSmoothVsVl = Mathr.Lerp(tempSmoothVsVl, Mathr.Clamp(speedCoeff / 2.3f, 0.025f, 1f), (fixedVsVelocitySpeed / 20f));
             smoothFixedVsVelocity = Mathr.Lerp(0f, smoothFixedVsVelocity, tempSmoothVsVl);
         }
 
-        // Compute final camera position
-        wantedPos = Vector3.Lerp(wantedPosFixed, wantedPosVelocity, smoothFixedVsVelocity);
+        wantedPos = Vector3.Lerp(wantedPosFixed, wantedPosVelocity, Mathr.Clamp01(smoothFixedVsVelocity));
 
-        mainCamera.PointAt(veh.Position + (Vector3.WorldUp * (heightOffset + currentVehicleHeight)) + (veh.ForwardVector * computeLookFrontOffset(veh)) );
+        var pointAt = veh.Position + fullHeightOffset + (veh.ForwardVector * computeLookFrontOffset(veh, speedCoeff));
+
+        mainCamera.PointAt(pointAt);
         look = Quaternion.Euler(mainCamera.Rotation);
-        currentPos = Vector3.Lerp(currentPos, wantedPos, cameraStickiness * realDelta);
-
-        //var speedDelta = ((veh.Speed / 200f) + 0.5f);
+        //currentPos = Vector3.Lerp(currentPos, wantedPos, Mathr.Clamp01((responsivenessMultiplier * cameraStickiness) * getDeltaTime()));
+        currentPos = Vector3.Lerp(currentPos, wantedPos, Mathr.Clamp01((responsivenessMultiplier * cameraStickiness) * getDeltaTime()));
 
         // Rotate the camera towards the velocity vector.
-        var finalCamRotationSpeed = Mathr.Lerp(cameraRotationSpeedLowSpeed, cameraRotationSpeed, Mathr.Clamp01((veh.Speed / lowSpeedLimit) * realDelta * 51f));
-        look = Mathr.QuaternionNLerp(currentRotation, look, finalCamRotationSpeed * realDelta);
+        var finalCamRotationSpeed = Mathr.Lerp(cameraRotationSpeedLowSpeed, cameraRotationSpeed, ((speedCoeff / lowSpeedLimit) * responsivenessMultiplier) * getDeltaTime() * 51f);
+        look = Mathr.QuaternionNLerp(currentRotation, look, (responsivenessMultiplier * finalCamRotationSpeed) * getDeltaTime());
+
+        Transform fixedDistanceTr = new Transform(currentPos + fullHeightOffset, Quaternion.Identity);
+        fixedDistanceTr.PointAt(pointAt);
+
+        var currentSpeedDistanceIncrement = 0f;
+
+        if(increaseDistanceAtHighSpeed)
+            currentSpeedDistanceIncrement = Mathr.Lerp(0f, maxHighSpeedDistanceIncrement, veh.Speed / maxHighSpeed);
+
+        fixedDistanceTr.position = veh.Position + (fixedDistanceTr.quaternion * Vector3.RelativeBack * (fullLongitudeOffset + currentSpeedDistanceIncrement));
+
+        fixedDistanceTr.position = fixedDistanceTr.position + fullHeightOffset;
 
         var transform = new Transform();
 
-        transform.position = currentPos + (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
+        transform.position = fixedDistanceTr.position;
+        //transform.position = currentPos + fullHeightOffset;
         transform.rotation = look.ToEulerAngles();
         transform.quaternion = look;
 
         return transform;
     }
 
-    private float computeLookFrontOffset(Vehicle veh)
+    private float computeLookFrontOffset(Vehicle veh, float speedCoeff)
     {
-        var speed = veh.Speed;
+        var speed = speedCoeff;
 
-        var factor = Mathr.InverseLerp(lookLowSpeedStart, lookLowSpeedEnd, veh.Speed);
+        var factor = Mathr.InverseLerp(lookLowSpeedStart, lookLowSpeedEnd, speedCoeff);
 
         return Mathr.Lerp(lookFrontOffsetLowSpeed, lookFrontOffset, factor);
     }
 
-    private float getFixedVsVelocityFactor(Vehicle veh)
+    private float getFixedVsVelocityFactor(Vehicle veh, float speedCoeff)
     {
         // If the car isn't moving, default to looking forwards
         if (veh.Velocity.Magnitude() < nearlySttopedSpeed)
@@ -448,7 +469,7 @@ public class CustomCameraV : Script
             else // if is on the ground. fit camera (mostly) behind vehicle (for better drift control)
             {
                 // Different factors for low/high speed
-                return Mathr.Lerp(velocityInfluenceLowSpeed, velocityInfluence, Mathr.Clamp(veh.Speed / lowSpeedLimit, 0f, 1f));
+                return Mathr.Lerp(velocityInfluenceLowSpeed, velocityInfluence, Mathr.Clamp(speedCoeff / lowSpeedLimit, 0f, 1f));
             }
         }
     }
@@ -629,7 +650,7 @@ public static class Mathr
     // Cheaper than Slerp
     public static Quaternion QuaternionNLerp(Quaternion start, Quaternion end, float ammount)
     {
-        return QuaternionFromEuler(Vector3.Lerp(start.ToEulerAngles(), end.ToEulerAngles(), ammount).Normalized);
+        return QuaternionFromEuler(Vector3.Lerp(start.ToEulerAngles(), end.ToEulerAngles(), Mathr.Clamp01(ammount)).Normalized);
     }
 
     public static float SmoothStep(float from, float to, float t)
@@ -650,7 +671,7 @@ public static class Mathr
 
     public static float Lerp(float value1, float value2, float amount)
     {
-        return value1 + (value2 - value1) * amount;
+        return value1 + (value2 - value1) * Mathr.Clamp01(amount);
     }
 
     public static float InverseLerp(float from, float to, float value)
@@ -750,6 +771,46 @@ public static class Mathr
     public static float Vector3SqrMagnitude(Vector3 a)
     {
         return (float)((double)a.X * (double)a.X + (double)a.Y * (double)a.Y + (double)a.Z * (double)a.Z);
+    }
+
+    /// <summary>
+    /// Evaluates a rotation needed to be applied to an object positioned at sourcePoint to face destPoint
+    /// </summary>
+    /// <param name="sourcePoint">Coordinates of source point</param>
+    /// <param name="destPoint">Coordinates of destionation point</param>
+    /// <returns></returns>
+    public static Quaternion LookAt(Vector3 sourcePoint, Vector3 destPoint)
+    {
+        Vector3 forwardVector = Vector3.Normalize(destPoint - sourcePoint);
+
+        float dot = Vector3.Dot(Vector3.RelativeFront, forwardVector);
+
+        if (Math.Abs(dot - (-1.0f)) < 0.000001f)
+        {
+            return new Quaternion(Vector3.WorldUp.X, Vector3.WorldUp.Y, Vector3.WorldUp.Z, 3.1415926535897932f);
+        }
+        if (Math.Abs(dot - (1.0f)) < 0.000001f)
+        {
+            return Quaternion.Identity;
+        }
+
+        float rotAngle = (float)Math.Acos(dot);
+        Vector3 rotAxis = Vector3.Cross(Vector3.RelativeFront, forwardVector);
+        rotAxis = Vector3.Normalize(rotAxis);
+        return CreateFromAxisAngle(rotAxis, rotAngle);
+    }
+
+    // just in case you need that function also
+    public static Quaternion CreateFromAxisAngle(Vector3 axis, float angle)
+    {
+        float halfAngle = angle * .5f;
+        float s = (float)System.Math.Sin(halfAngle);
+        Quaternion q = Quaternion.Identity;
+        q.X = axis.X * s;
+        q.Y = axis.Y * s;
+        q.Z = axis.Z * s;
+        q.W = (float)System.Math.Cos(halfAngle);
+        return q;
     }
 }
 
