@@ -34,7 +34,7 @@ https://www.gta5-mods.com/scripts/custom-camera-v
 * Shooting: aim and shoot just like in the built-in camera (mouse and gamepad supported)
 * Free look: look-around just like in the built-in camera (mouse and gamepad supported)
 
-### Recommender third party mods to use with Custom Camera V ###
+### Recommended third party mods to use with Custom Camera V ###
 
 * Inverse power script by ikt
 * A handling mod, such as Realistic Driving V or RDE 3.0 handling file
