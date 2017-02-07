@@ -394,7 +394,7 @@ public class CustomCameraV : Script
             wantedPosVelocity = wantedPos + Mathr.QuaternionLookRotation(smoothVelocity) * Vector3.RelativeBottom * fullLongitudeOffset;
 
         // Smooth factor between two above cam positions
-        smoothFixedVsVelocity = Mathr.Lerp(smoothFixedVsVelocity, fixedVsVelocity, (responsivenessMultiplier * fixedVsVelocitySpeed) * getDeltaTime());
+        smoothFixedVsVelocity = Mathr.Lerp(smoothFixedVsVelocity, fixedVsVelocity, (fixedVsVelocitySpeed) * getDeltaTime());
 
         if(!isCycleOrByke)
         {
