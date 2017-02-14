@@ -27,7 +27,7 @@ public class CustomCameraV : Script
 
     // How fast lerp between rear and velocity cam position when neccesary
     private float fixedVsVelocitySpeed = 2.5f;
-    private Vector3 smoothVelocity;
+    private Vector3 smoothVelocity = new Vector3();
     private Vector3 smoothVelocitySmDamp = new Vector3();
 
     private bool showDebugStats = false;
@@ -49,6 +49,8 @@ public class CustomCameraV : Script
     private bool isSuitableForCam = false;
 
     private bool firstVeh = true;
+    private Vector3 pointAt;
+    private float lastVelocityMagnitude = 0f;
 
     public float fov = 75f;
     public float distanceOffset = 2.4f;
@@ -95,6 +97,12 @@ public class CustomCameraV : Script
     public float maxHighSpeedDistanceIncrement = 2.4f;
     public float maxHighSpeed = 80f;
 
+    public bool accelerationAffectsCamDistance = true;
+    public float accelerationCamDistanceMultiplier = 1.75f;
+
+    public Keys toggleEnabledKey = Keys.NumPad1;
+    public Keys toggleDebugKey = Keys.NumPad2;
+
     public CustomCameraV()
     {
         this.Tick += OnTick;
@@ -116,6 +124,7 @@ public class CustomCameraV : Script
         heightOffset = Settings.GetValue<float>("general", "heightOffset", heightOffset);
         fov = Settings.GetValue<float>("general", "fov", fov);
         increaseDistanceAtHighSpeed = Settings.GetValue<bool>("general", "increaseDistanceAtHighSpeed", increaseDistanceAtHighSpeed);
+        accelerationAffectsCamDistance = Settings.GetValue<bool>("general", "accelerationAffectsCamDistance", accelerationAffectsCamDistance);
 
         // advanced
         lookFrontOffset = Settings.GetValue<float>("advanced", "lookFrontOffset", lookFrontOffset);
@@ -123,6 +132,10 @@ public class CustomCameraV : Script
         cameraRotationSpeed = Settings.GetValue<float>("advanced", "cameraRotationSpeed", cameraRotationSpeed);
         cameraRotationSpeedLowSpeed = Settings.GetValue<float>("advanced", "cameraRotationSpeedLowSpeed", cameraRotationSpeedLowSpeed);
         generalMovementSpeed = Settings.GetValue<float>("advanced", "generalMovementSpeed", generalMovementSpeed);
+
+        //key-mappings
+        toggleEnabledKey = Settings.GetValue<Keys>("keymappings", "toggleEnabledKey", toggleEnabledKey);
+        toggleDebugKey = Settings.GetValue<Keys>("keymappings", "toggleDebugKey", toggleDebugKey);
 
         // Sanitize
         generalMovementSpeed = Mathr.Clamp(generalMovementSpeed, 0.1f, 10f);
@@ -172,7 +185,7 @@ public class CustomCameraV : Script
 
                     if (firstVeh && notifyModEnabled)
                     {
-                        UI.Notify("CustomCameraV Enabled (Press numpad1 to disable)");
+                        UI.Notify("CustomCameraV Enabled (Press "+ toggleEnabledKey.ToString() +" to disable)");
                         firstVeh = false;
                     }
                 }
@@ -191,7 +204,6 @@ public class CustomCameraV : Script
                 mainCamera.Position = Vector3.Lerp(rearCameraTransform.position, cameraMouseLooking.position, Mathr.Clamp01(smoothIsMouseLooking));
                 mainCamera.Rotation = Mathr.QuaternionNLerp(rearCameraTransform.quaternion, cameraMouseLooking.quaternion, smoothIsMouseLooking).ToEulerAngles();
                 //mainCamera.FieldOfView = Mathr.Lerp(fov, fov - 2.5f, smoothIsMouseLooking);
-
             }
         }
         else if(camSet)
@@ -209,6 +221,8 @@ public class CustomCameraV : Script
     private void setupDebugStats(Vehicle veh)
     {
         dbgPanel = new DebugPanel();
+
+        dbgPanel.header = "CustomCameraV debug ( press " + toggleDebugKey.ToString() + " to hide )";
 
         dbgPanel.watchedVariables.Add("Veh Speed", () => { return veh.Speed; });
         dbgPanel.watchedVariables.Add("Veh vel. mag", () => { return Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f); });
@@ -278,7 +292,7 @@ public class CustomCameraV : Script
 
         transform.position =   GameplayCamera.Position;
         transform.rotation =   GameplayCamera.Rotation;
-        transform.quaternion = GameplayCamera.Rotation.QuaternionFromEuler();
+        transform.quaternion = Quaternion.Euler(transform.rotation);
 
         return transform;
     }
@@ -364,12 +378,12 @@ public class CustomCameraV : Script
     private Transform UpdateCameraRear(Ped player, Vehicle veh)
     {
         var fullHeightOffset = (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
+        var speedCoeff = Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f);
+        pointAt = veh.Position + fullHeightOffset + (veh.ForwardVector * computeLookFrontOffset(veh, speedCoeff));
 
         // smooth out current rotation and position
         currentRotation = Mathr.QuaternionNLerp(currentRotation, Mathr.QuaternionFromEuler(mainCamera.Rotation), (responsivenessMultiplier * generalMovementSpeed) * getDeltaTime());
         currentPos = Vector3.Lerp(currentPos, mainCamera.Position - fullHeightOffset, Mathr.Clamp01((responsivenessMultiplier * generalMovementSpeed) * getDeltaTime()));
-
-        var speedCoeff = Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f);
 
         Quaternion look;
         var wantedPos = veh.Position;
@@ -404,26 +418,28 @@ public class CustomCameraV : Script
 
         wantedPos = Vector3.Lerp(wantedPosFixed, wantedPosVelocity, Mathr.Clamp01(smoothFixedVsVelocity));
 
-        var pointAt = veh.Position + fullHeightOffset + (veh.ForwardVector * computeLookFrontOffset(veh, speedCoeff));
-
         mainCamera.PointAt(pointAt);
         look = Quaternion.Euler(mainCamera.Rotation);
         //currentPos = Vector3.Lerp(currentPos, wantedPos, Mathr.Clamp01((responsivenessMultiplier * cameraStickiness) * getDeltaTime()));
         currentPos = Vector3.Lerp(currentPos, wantedPos, Mathr.Clamp01((responsivenessMultiplier * cameraStickiness) * getDeltaTime()));
 
         // Rotate the camera towards the velocity vector.
-        var finalCamRotationSpeed = Mathr.Lerp(cameraRotationSpeedLowSpeed, cameraRotationSpeed, ((speedCoeff / lowSpeedLimit) * responsivenessMultiplier) * getDeltaTime() * 51f);
-        look = Mathr.QuaternionNLerp(currentRotation, look, (responsivenessMultiplier * finalCamRotationSpeed) * getDeltaTime());
+        var finalCamRotationSpeed = Mathr.Lerp(cameraRotationSpeedLowSpeed, cameraRotationSpeed, ((speedCoeff / lowSpeedLimit) * 1.32f) * getDeltaTime() * 51f);
+        look = Mathr.QuaternionNLerp(currentRotation, look, (1.8f * finalCamRotationSpeed) * getDeltaTime());
 
+        // Fix stuttering (mantain camera distance fixed in local space)
         Transform fixedDistanceTr = new Transform(currentPos + fullHeightOffset, Quaternion.Identity);
         fixedDistanceTr.PointAt(pointAt);
 
-        var currentSpeedDistanceIncrement = 0f;
+        var currentDistanceIncrement = 0f;
 
         if(increaseDistanceAtHighSpeed)
-            currentSpeedDistanceIncrement = Mathr.Lerp(0f, maxHighSpeedDistanceIncrement, veh.Speed / maxHighSpeed);
+            currentDistanceIncrement = Mathr.Lerp(0f, maxHighSpeedDistanceIncrement, veh.Speed / maxHighSpeed);
 
-        fixedDistanceTr.position = veh.Position + (fixedDistanceTr.quaternion * Vector3.RelativeBack * (fullLongitudeOffset + currentSpeedDistanceIncrement));
+        if (accelerationAffectsCamDistance)
+            currentDistanceIncrement += Mathr.Lerp(0f, accelerationCamDistanceMultiplier, getVehicleAcceleration(veh) / (maxHighSpeed * 10f));
+
+        fixedDistanceTr.position = veh.Position + (fixedDistanceTr.quaternion * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
 
         fixedDistanceTr.position = fixedDistanceTr.position + fullHeightOffset;
 
@@ -435,6 +451,16 @@ public class CustomCameraV : Script
         transform.quaternion = look;
 
         return transform;
+    }
+
+    private float getVehicleAcceleration(Vehicle veh)
+    {
+        var mag = smoothVelocity.Magnitude();
+        var ret = (mag - lastVelocityMagnitude) * getDeltaTime();
+
+        lastVelocityMagnitude = mag;
+
+        return ret;
     }
 
     private float computeLookFrontOffset(Vehicle veh, float speedCoeff)
@@ -505,12 +531,12 @@ public class CustomCameraV : Script
 
     private void onKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.KeyCode == Keys.NumPad2)
+        if (e.KeyCode == toggleDebugKey)
         {
             showDebugStats = !showDebugStats;
         }
 
-        if (e.KeyCode == Keys.NumPad1)
+        if (e.KeyCode == toggleEnabledKey)
         {
             customCamEnabled = !customCamEnabled;
         }

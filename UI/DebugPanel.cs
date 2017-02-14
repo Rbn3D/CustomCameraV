@@ -15,7 +15,7 @@ public class DebugPanel
     public int distanceBetweenLines = 15;
     public float fontSize = 0.3f;
 
-    public string header = "CustomCameraV debug ( press numpad2 to hide )";
+    public string header = "CustomCameraV debug";
 
     public void Draw()
     {
