@@ -51,6 +51,7 @@ public class CustomCameraV : Script
     private bool firstVeh = true;
     private Vector3 pointAt;
     private float lastVelocityMagnitude = 0f;
+    private float smoothIsInAir = 0f;
 
     public float fov = 75f;
     public float distanceOffset = 2.4f;
@@ -98,10 +99,21 @@ public class CustomCameraV : Script
     public float maxHighSpeed = 80f;
 
     public bool accelerationAffectsCamDistance = true;
-    public float accelerationCamDistanceMultiplier = 1.75f;
+    public float accelerationCamDistanceMultiplier = 2.38f;
 
     public Keys toggleEnabledKey = Keys.NumPad1;
     public Keys toggleDebugKey = Keys.NumPad2;
+
+    public float vehDummyOffset = 0.11f;
+    public float vehDummyOffsetHighSpeed = -0.05f;
+    private Vector3 fullHeightOffset;
+    private float speedCoeff = 0f;
+    private float finalDummyOffset = 0f;
+    private bool isRearCameraOnly = false;
+    private bool isMouseCameraOnly = false;
+    private float fullLongitudeOffset;
+    private float towedVehicleLongitude;
+    private float currentDistanceIncrement;
 
     public CustomCameraV()
     {
@@ -196,14 +208,39 @@ public class CustomCameraV : Script
                         drawDebugStats(veh);
                     }
                 }
-                rearCameraTransform = UpdateCameraRear(player, veh);
-                cameraMouseLooking = UpdateCameraMouse(player, veh);
-
                 Game.DisableControlThisFrame(2, GTA.Control.NextCamera);
 
-                mainCamera.Position = Vector3.Lerp(rearCameraTransform.position, cameraMouseLooking.position, Mathr.Clamp01(smoothIsMouseLooking));
-                mainCamera.Rotation = Mathr.QuaternionNLerp(rearCameraTransform.quaternion, cameraMouseLooking.quaternion, smoothIsMouseLooking).ToEulerAngles();
-                //mainCamera.FieldOfView = Mathr.Lerp(fov, fov - 2.5f, smoothIsMouseLooking);
+                isRearCameraOnly = smoothIsMouseLooking < 0.005f;
+                isMouseCameraOnly = smoothIsMouseLooking > 0.995f;
+
+                processCameraCommon(player, veh);
+
+                if(isRearCameraOnly)
+                {
+                    rearCameraTransform = UpdateCameraRear(player, veh);
+
+                    mainCamera.Position = rearCameraTransform.position;
+                    mainCamera.Rotation = rearCameraTransform.rotation;
+                }
+                else if(isMouseCameraOnly)
+                {
+                    cameraMouseLooking = UpdateCameraMouse(player, veh);
+
+                    mainCamera.Position = cameraMouseLooking.position;
+                    //mainCamera.Rotation = cameraMouseLooking.rotation;
+
+                    // ugly fix, but works (still some stuttering while mouse looking)
+                    mainCamera.PointAt(pointAt);
+                }
+                else
+                {
+                    rearCameraTransform = UpdateCameraRear(player, veh);
+                    cameraMouseLooking = UpdateCameraMouse(player, veh);
+
+                    mainCamera.Position = Vector3.Lerp(rearCameraTransform.position, cameraMouseLooking.position, Mathr.Clamp01(smoothIsMouseLooking));
+                    mainCamera.Rotation = Mathr.QuaternionNLerp(rearCameraTransform.quaternion, cameraMouseLooking.quaternion, smoothIsMouseLooking).ToEulerAngles();
+                }
+
             }
         }
         else if(camSet)
@@ -227,8 +264,9 @@ public class CustomCameraV : Script
         dbgPanel.watchedVariables.Add("Veh Speed", () => { return veh.Speed; });
         dbgPanel.watchedVariables.Add("Veh vel. mag", () => { return Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f); });
         dbgPanel.watchedVariables.Add("Smooth fixed vs velocity", () => { return smoothFixedVsVelocity; });
+        dbgPanel.watchedVariables.Add("Smooth is in air", () => { return smoothIsInAir; });
         dbgPanel.watchedVariables.Add("Current gear", () => { return veh.CurrentGear; });
-        dbgPanel.watchedVariables.Add("LookFrontOffset", () => { return computeLookFrontOffset(veh, Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f)); });
+        dbgPanel.watchedVariables.Add("LookFrontOffset", () => { return computeLookFrontOffset(veh, Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f), smoothIsInAir); });
         dbgPanel.watchedVariables.Add("Height", () => { return currentVehicleHeight; });
         dbgPanel.watchedVariables.Add("Longitude", () => { return currentVehicleLongitude; });
         dbgPanel.watchedVariables.Add("MouseX", () => { return InputR.MouseX; });
@@ -242,6 +280,8 @@ public class CustomCameraV : Script
         dbgPanel.watchedVariables.Add("Interval", () => { return Interval; });
         dbgPanel.watchedVariables.Add("veh.Position", () => { return veh.Position; });
         dbgPanel.watchedVariables.Add("veh.Speed / maxHighSpeed", () => { return veh.Speed / maxHighSpeed; });
+        dbgPanel.watchedVariables.Add("isMouseCameraOnly", () => { return isMouseCameraOnly; });
+        dbgPanel.watchedVariables.Add("isRearCameraOnly", () => { return isRearCameraOnly; });
     }
 
     private void drawDebugStats(Vehicle veh)
@@ -284,22 +324,17 @@ public class CustomCameraV : Script
         currentVehicleLongitude = getVehicleLongitude(veh);
         isCycleOrByke = veh.ClassType == VehicleClass.Cycles || veh.ClassType == VehicleClass.Motorcycles;
         isSuitableForCam = isVehicleSuitableForCustomCamera(veh);
-    }
 
-    private Transform UpdateCameraMouse(Ped player, Vehicle veh)
-    {
-        Transform transform = new Transform();
-
-        transform.position =   GameplayCamera.Position;
-        transform.rotation =   GameplayCamera.Rotation;
-        transform.quaternion = Quaternion.Euler(transform.rotation);
-
-        return transform;
+        fullHeightOffset = (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
     }
 
     private void updateMouseAndGamepadInput(Vehicle veh)
     {
         Vector2 currentMousePosition = new Vector2(InputR.MouseX, InputR.MouseY);
+
+        if ((currentMousePosition.X == 0f && currentMousePosition.Y == 0f))
+            return; // Fix mouse look always fired after return from pause menu or splash screen
+
         float xMovement = Math.Abs(oldMousePosition.X - currentMousePosition.X);
         float yMovement = Math.Abs(oldMousePosition.Y - currentMousePosition.Y);
         oldMousePosition = currentMousePosition;
@@ -363,8 +398,8 @@ public class CustomCameraV : Script
     {
         camSet = true;
 
-        mainCamera = World.CreateCamera(veh.Position, veh.Rotation, fov);
-        mainCamera.Position -= (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
+        mainCamera = World.CreateCamera(GameplayCamera.Position, GameplayCamera.Rotation, fov);
+        //mainCamera.Position -= (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
 
         //currentPos = veh.Position - (veh.ForwardVector * (currentVehicleLongitude + distanceOffset)) + (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
         //currentRotation = veh.Quaternion;
@@ -375,28 +410,69 @@ public class CustomCameraV : Script
         World.RenderingCamera = mainCamera;
     }
 
+    private Transform UpdateCameraMouse(Ped player, Vehicle veh)
+    {
+        Transform transform = new Transform();
+
+        transform.position = GameplayCamera.Position;
+        //transform.rotation = GameplayCamera.Rotation;
+        //transform.quaternion = Quaternion.Euler(transform.rotation);
+
+        //transform.PointAt(pointAt);
+
+        // Fix stuttering (mantain camera distance fixed in local space)
+        // For mouse look, there is still some stuttering at high speeds
+        Transform fixedDistanceTr = new Transform(transform.position, Quaternion.Identity);
+        fixedDistanceTr.PointAt(pointAt);
+
+        fixedDistanceTr.position = veh.Position + (fixedDistanceTr.quaternion * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
+
+        transform.position = fixedDistanceTr.position;
+
+        return transform;
+    }
+
+    private void processCameraCommon(Ped player, Vehicle veh)
+    {
+        smoothIsInAir = Mathr.Lerp(smoothIsInAir, veh.IsInAir ? 1f : 0f, 1.3f * getDeltaTime());
+        speedCoeff = Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f);
+        pointAt = veh.Position + fullHeightOffset + (veh.ForwardVector * computeLookFrontOffset(veh, speedCoeff, smoothIsInAir));
+
+        finalDummyOffset = Mathr.Lerp(vehDummyOffset, vehDummyOffsetHighSpeed, speedCoeff / (maxHighSpeed * 1.6f));
+
+        // no offset if car is in the air
+        finalDummyOffset = Mathr.Lerp(finalDummyOffset, 0f, smoothIsInAir);
+
+        if (veh.TowedVehicle != null)
+            towedVehicleLongitude = veh.TowedVehicle.Model.GetDimensions().Y;
+        else
+            towedVehicleLongitude = 0f;
+
+        fullLongitudeOffset = (distanceOffset + currentVehicleLongitude / 2f) /* + vehDummyOffset*/ + towedVehicleLongitude;
+
+        currentDistanceIncrement = 0f;
+
+        if (increaseDistanceAtHighSpeed)
+            currentDistanceIncrement = Mathr.Lerp(0f, maxHighSpeedDistanceIncrement, veh.Speed / maxHighSpeed);
+
+        if (accelerationAffectsCamDistance)
+            currentDistanceIncrement += Mathr.Lerp(0f, accelerationCamDistanceMultiplier, getVehicleAcceleration(veh) / (maxHighSpeed * 10f));
+    }
+
     private Transform UpdateCameraRear(Ped player, Vehicle veh)
     {
-        var fullHeightOffset = (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
-        var speedCoeff = Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f);
-        pointAt = veh.Position + fullHeightOffset + (veh.ForwardVector * computeLookFrontOffset(veh, speedCoeff));
-
         // smooth out current rotation and position
         currentRotation = Mathr.QuaternionNLerp(currentRotation, Mathr.QuaternionFromEuler(mainCamera.Rotation), (responsivenessMultiplier * generalMovementSpeed) * getDeltaTime());
         currentPos = Vector3.Lerp(currentPos, mainCamera.Position - fullHeightOffset, Mathr.Clamp01((responsivenessMultiplier * generalMovementSpeed) * getDeltaTime()));
 
         Quaternion look;
-        var wantedPos = veh.Position;
+
+        var wantedPos = veh.Position + (veh.ForwardVector * finalDummyOffset);
 
         // If veh has towed vehicle, increase camera distance by towed vehicle longitude
-        var towedVehicleLongitude = 0f;
-        if (veh.TowedVehicle != null)
-            towedVehicleLongitude = veh.TowedVehicle.Model.GetDimensions().Y;
 
         // should camera be attached to vehicle's back or back his velocity
         var fixedVsVelocity = getFixedVsVelocityFactor(veh, speedCoeff);
-
-        var fullLongitudeOffset = (distanceOffset + currentVehicleLongitude / 2f) + towedVehicleLongitude;
 
         // Compute camera position rear the vechicle
         var wantedPosFixed = wantedPos - veh.Quaternion * Vector3.RelativeFront * fullLongitudeOffset;
@@ -431,14 +507,6 @@ public class CustomCameraV : Script
         Transform fixedDistanceTr = new Transform(currentPos + fullHeightOffset, Quaternion.Identity);
         fixedDistanceTr.PointAt(pointAt);
 
-        var currentDistanceIncrement = 0f;
-
-        if(increaseDistanceAtHighSpeed)
-            currentDistanceIncrement = Mathr.Lerp(0f, maxHighSpeedDistanceIncrement, veh.Speed / maxHighSpeed);
-
-        if (accelerationAffectsCamDistance)
-            currentDistanceIncrement += Mathr.Lerp(0f, accelerationCamDistanceMultiplier, getVehicleAcceleration(veh) / (maxHighSpeed * 10f));
-
         fixedDistanceTr.position = veh.Position + (fixedDistanceTr.quaternion * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
 
         fixedDistanceTr.position = fixedDistanceTr.position + fullHeightOffset;
@@ -463,13 +531,18 @@ public class CustomCameraV : Script
         return ret;
     }
 
-    private float computeLookFrontOffset(Vehicle veh, float speedCoeff)
+    private float computeLookFrontOffset(Vehicle veh, float speedCoeff, float smoothIsInAir)
     {
         var speed = speedCoeff;
 
         var factor = Mathr.InverseLerp(lookLowSpeedStart, lookLowSpeedEnd, speedCoeff);
 
-        return Mathr.Lerp(lookFrontOffsetLowSpeed, lookFrontOffset, factor);
+        var res = Mathr.Lerp(lookFrontOffsetLowSpeed, lookFrontOffset, factor);
+
+        // No offset while in air
+        res = Mathr.Lerp(res, 0f, this.smoothIsInAir);
+
+        return res;
     }
 
     private float getFixedVsVelocityFactor(Vehicle veh, float speedCoeff)
