@@ -53,6 +53,18 @@ public class CustomCameraV : Script
     private float lastVelocityMagnitude = 0f;
     private float smoothIsInAir = 0f;
 
+    private Vector3 fullHeightOffset;
+    private float speedCoeff = 0f;
+    private float finalDummyOffset = 0f;
+    private bool isRearCameraOnly = false;
+    private bool isMouseCameraOnly = false;
+    private float fullLongitudeOffset;
+    private float towedVehicleLongitude;
+    private float currentDistanceIncrement;
+    private float smoothIsRearGear;
+
+    private Transform rearCamCurrentTransform;
+
     public float fov = 75f;
     public float distanceOffset = 2.4f;
     public float heightOffset = 0.28f;
@@ -91,11 +103,11 @@ public class CustomCameraV : Script
 
     public float stoppedSpeed = 0.1f;
 
-    // Notify about mod enabled of first vehicle enter?
+    // Notify user about mod enabled of first vehicle enter?
     public bool notifyModEnabled = true;
 
     public bool increaseDistanceAtHighSpeed = true;
-    public float maxHighSpeedDistanceIncrement = 2.4f;
+    public float maxHighSpeedDistanceIncrement = 2.16f;
     public float maxHighSpeed = 80f;
 
     public bool accelerationAffectsCamDistance = true;
@@ -106,14 +118,11 @@ public class CustomCameraV : Script
 
     public float vehDummyOffset = 0.11f;
     public float vehDummyOffsetHighSpeed = -0.05f;
-    private Vector3 fullHeightOffset;
-    private float speedCoeff = 0f;
-    private float finalDummyOffset = 0f;
-    private bool isRearCameraOnly = false;
-    private bool isMouseCameraOnly = false;
-    private float fullLongitudeOffset;
-    private float towedVehicleLongitude;
-    private float currentDistanceIncrement;
+
+    // Camera will tend to align with vehicle's back over time by this value (set to zero to disable)
+    //public float alignmentSpeed = 0.0001f;
+    //public float alignmentSpeed = 0.000092f;
+    public float alignmentSpeed = 0.25f;
 
     public CustomCameraV()
     {
@@ -185,6 +194,8 @@ public class CustomCameraV : Script
 
                 updateMouseAndGamepadInput(veh);
 
+                processCameraCommon(player, veh);
+
                 if (!camSet)
                 {
                     // Just entered on vehicle
@@ -212,8 +223,6 @@ public class CustomCameraV : Script
 
                 isRearCameraOnly = smoothIsMouseLooking < 0.005f;
                 isMouseCameraOnly = smoothIsMouseLooking > 0.995f;
-
-                processCameraCommon(player, veh);
 
                 if(isRearCameraOnly)
                 {
@@ -282,6 +291,8 @@ public class CustomCameraV : Script
         dbgPanel.watchedVariables.Add("veh.Speed / maxHighSpeed", () => { return veh.Speed / maxHighSpeed; });
         dbgPanel.watchedVariables.Add("isMouseCameraOnly", () => { return isMouseCameraOnly; });
         dbgPanel.watchedVariables.Add("isRearCameraOnly", () => { return isRearCameraOnly; });
+        dbgPanel.watchedVariables.Add("veh.Rotation", () => { return veh.Rotation; });
+        dbgPanel.watchedVariables.Add("alignFactor", () => { return alignmentSpeed * (1 - smoothIsInAir) * (1 - smoothIsRearGear); });
     }
 
     private void drawDebugStats(Vehicle veh)
@@ -408,24 +419,22 @@ public class CustomCameraV : Script
 
         mainCamera.IsActive = true;
         World.RenderingCamera = mainCamera;
+
+        rearCamCurrentTransform = new Transform(veh.Position + (veh.Quaternion * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement)), veh.Rotation);
     }
 
     private Transform UpdateCameraMouse(Ped player, Vehicle veh)
     {
         Transform transform = new Transform();
 
-        transform.position = GameplayCamera.Position;
-        //transform.rotation = GameplayCamera.Rotation;
-        //transform.quaternion = Quaternion.Euler(transform.rotation);
-
-        //transform.PointAt(pointAt);
+        transform.position = GameplayCamera.Position + fullHeightOffset;
 
         // Fix stuttering (mantain camera distance fixed in local space)
         // For mouse look, there is still some stuttering at high speeds
         Transform fixedDistanceTr = new Transform(transform.position, Quaternion.Identity);
         fixedDistanceTr.PointAt(pointAt);
 
-        fixedDistanceTr.position = veh.Position + (fixedDistanceTr.quaternion * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
+        fixedDistanceTr.position = veh.Position /*+ (fullHeightOffset / 3f)*/ + (fixedDistanceTr.quaternion * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
 
         transform.position = fixedDistanceTr.position;
 
@@ -435,6 +444,7 @@ public class CustomCameraV : Script
     private void processCameraCommon(Ped player, Vehicle veh)
     {
         smoothIsInAir = Mathr.Lerp(smoothIsInAir, veh.IsInAir ? 1f : 0f, 1.3f * getDeltaTime());
+        smoothIsRearGear = Mathr.Lerp(smoothIsRearGear, veh.CurrentGear == 0 ? 1f : 0f, 1.3f * getDeltaTime());
         speedCoeff = Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f);
         pointAt = veh.Position + fullHeightOffset + (veh.ForwardVector * computeLookFrontOffset(veh, speedCoeff, smoothIsInAir));
 
@@ -462,8 +472,8 @@ public class CustomCameraV : Script
     private Transform UpdateCameraRear(Ped player, Vehicle veh)
     {
         // smooth out current rotation and position
-        currentRotation = Mathr.QuaternionNLerp(currentRotation, Mathr.QuaternionFromEuler(mainCamera.Rotation), (responsivenessMultiplier * generalMovementSpeed) * getDeltaTime());
-        currentPos = Vector3.Lerp(currentPos, mainCamera.Position - fullHeightOffset, Mathr.Clamp01((responsivenessMultiplier * generalMovementSpeed) * getDeltaTime()));
+        currentRotation = Mathr.QuaternionNLerp(currentRotation, rearCamCurrentTransform.quaternion, (responsivenessMultiplier * generalMovementSpeed) * getDeltaTime());
+        currentPos = Vector3.Lerp(currentPos, rearCamCurrentTransform.position, Mathr.Clamp01((responsivenessMultiplier * generalMovementSpeed) * getDeltaTime()));
 
         Quaternion look;
 
@@ -494,22 +504,53 @@ public class CustomCameraV : Script
 
         wantedPos = Vector3.Lerp(wantedPosFixed, wantedPosVelocity, Mathr.Clamp01(smoothFixedVsVelocity));
 
-        mainCamera.PointAt(pointAt);
-        look = Quaternion.Euler(mainCamera.Rotation);
         //currentPos = Vector3.Lerp(currentPos, wantedPos, Mathr.Clamp01((responsivenessMultiplier * cameraStickiness) * getDeltaTime()));
         currentPos = Vector3.Lerp(currentPos, wantedPos, Mathr.Clamp01((responsivenessMultiplier * cameraStickiness) * getDeltaTime()));
+
+        //rearCamCurrentTransform.position = currentPos;
+        mainCamera.PointAt(pointAt);
+        look = Quaternion.Euler(mainCamera.Rotation);
 
         // Rotate the camera towards the velocity vector.
         var finalCamRotationSpeed = Mathr.Lerp(cameraRotationSpeedLowSpeed, cameraRotationSpeed, ((speedCoeff / lowSpeedLimit) * 1.32f) * getDeltaTime() * 51f);
         look = Mathr.QuaternionNLerp(currentRotation, look, (1.8f * finalCamRotationSpeed) * getDeltaTime());
 
+        //// Auto align over time
+        //if (alignmentSpeed > 0.001f)
+        //{
+        //    var wantedRot = veh.Rotation;
+        //    //wantedRot.y = 0f;
+        //    //look = Mathr.QuaternionNLerp(look, Quaternion.Euler(wantedRot), (alignmentSpeed * getDeltaTime()) * (1 - smoothIsInAir));
+
+        //    Transform alignTr = new Transform(currentPos + fullHeightOffset, Quaternion.Identity);
+        //    alignTr.PointAt(pointAt);
+        //    alignTr.quaternion = Quaternion.Lerp(alignTr.quaternion, Quaternion.Euler(wantedRot), alignmentSpeed * getDeltaTime() * (1 - smoothIsInAir));
+
+        //    currentPos = veh.Position + fullHeightOffset + (alignTr.quaternion * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
+        //}
+            
+
         // Fix stuttering (mantain camera distance fixed in local space)
         Transform fixedDistanceTr = new Transform(currentPos + fullHeightOffset, Quaternion.Identity);
         fixedDistanceTr.PointAt(pointAt);
 
-        fixedDistanceTr.position = veh.Position + (fixedDistanceTr.quaternion * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
+        Quaternion rotInitial = fixedDistanceTr.quaternion;
 
-        fixedDistanceTr.position = fixedDistanceTr.position + fullHeightOffset;
+        // Auto alignment (WIP)
+
+        //Vector3 rotBehindVector = veh.Position + fullHeightOffset - (veh.Quaternion * Vector3.RelativeFront * (fullLongitudeOffset + currentDistanceIncrement));
+        //rotBehindVector.Z = fixedDistanceTr.position.Z;
+
+        //Quaternion rotBehind = Mathr.LookAt(rotBehindVector, pointAt);
+
+        //Quaternion finalRot = Quaternion.Lerp(rotInitial, rotBehind, alignmentSpeed * (1 - smoothIsInAir) * (1 - smoothIsRearGear));
+
+        //fixedDistanceTr.position = veh.Position + fullHeightOffset + (finalRot * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
+        // End Autoalignment
+
+        fixedDistanceTr.position = veh.Position + fullHeightOffset + (rotInitial * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
+
+        //fixedDistanceTr.position = fixedDistanceTr.position + fullHeightOffset;
 
         var transform = new Transform();
 
@@ -517,6 +558,8 @@ public class CustomCameraV : Script
         //transform.position = currentPos + fullHeightOffset;
         transform.rotation = look.ToEulerAngles();
         transform.quaternion = look;
+
+        rearCamCurrentTransform = transform;
 
         return transform;
     }
