@@ -5,38 +5,40 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 
-
-public class DebugPanel
+namespace CustomCameraVScript
 {
-    public delegate object watchDelegate();
-
-    public Dictionary<string, watchDelegate> watchedVariables = new Dictionary<string, watchDelegate>();
-    public Point startPoint = new Point(10, 10);
-    public int distanceBetweenLines = 15;
-    public float fontSize = 0.3f;
-
-    public string header = "CustomCameraV debug";
-
-    public void Draw()
+    public class DebugPanel
     {
-        int x = startPoint.X;
-        int y = startPoint.Y;
+        public delegate object watchDelegate();
 
-        DrawInfo(header, x, y, fontSize);
+        public Dictionary<string, watchDelegate> watchedVariables = new Dictionary<string, watchDelegate>();
+        public Point startPoint = new Point(10, 10);
+        public int distanceBetweenLines = 15;
+        public float fontSize = 0.3f;
 
-        y += distanceBetweenLines;
+        public string header = "CustomCameraV debug";
 
-        foreach (var entry in watchedVariables)
+        public void Draw()
         {
-            DrawInfo(entry.Key + (entry.Value == null ? "" : ": " + entry.Value.DynamicInvoke().ToString()), x, y, fontSize);
+            int x = startPoint.X;
+            int y = startPoint.Y;
+
+            DrawInfo(header, x, y, fontSize);
 
             y += distanceBetweenLines;
-        }
-    }
 
-    protected void DrawInfo(string caption, int x, int y, float fontSize)
-    {
-        UIText text = new UIText(caption, new Point(x, y), fontSize);
-        text.Draw();
+            foreach (var entry in watchedVariables)
+            {
+                DrawInfo(entry.Key + (entry.Value == null ? "" : ": " + entry.Value.DynamicInvoke().ToString()), x, y, fontSize);
+
+                y += distanceBetweenLines;
+            }
+        }
+
+        protected void DrawInfo(string caption, int x, int y, float fontSize)
+        {
+            UIText text = new UIText(caption, new Point(x, y), fontSize);
+            text.Draw();
+        }
     }
 }
