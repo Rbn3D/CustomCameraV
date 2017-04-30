@@ -1,9 +1,9 @@
 
-#Custom Camera V#
+# Custom Camera V #
 
-##A custom vehicle camera system for Grand Theft Auto V##
+## A custom vehicle camera system for Grand Theft Auto V ##
 
-#### Warning: This project is a Work In Progress and may contain some bugs. Feel free to compile and test.####
+#### Warning: This project is a Work In Progress and may contain some bugs. Feel free to compile and test. ####
 
 ### Features ###
 
