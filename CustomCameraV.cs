@@ -71,6 +71,7 @@ namespace CustomCameraVScript
         public float fov = 75f;
         public float distanceOffset = 2.4f;
         public float heightOffset = 0.28f;
+        public float extraCamHeight = 0.10f;
 
         public float lookFrontOffset = -0.25f;
         public float lookFrontOffsetLowSpeed = -0.4f;
@@ -110,11 +111,13 @@ namespace CustomCameraVScript
         public bool notifyModEnabled = true;
 
         public bool increaseDistanceAtHighSpeed = true;
-        public float maxHighSpeedDistanceIncrement = 2.16f;
+        public float maxHighSpeedDistanceIncrement = 1.9f;
         public float maxHighSpeed = 80f;
 
         public bool accelerationAffectsCamDistance = true;
         public float accelerationCamDistanceMultiplier = 2.38f;
+
+        public bool useEasingForCamDistance = true;
 
         public Keys toggleEnabledKey = Keys.NumPad1;
         public Keys toggleDebugKey = Keys.NumPad2;
@@ -149,6 +152,7 @@ namespace CustomCameraVScript
             fov = Settings.GetValue<float>("general", "fov", fov);
             increaseDistanceAtHighSpeed = Settings.GetValue<bool>("general", "increaseDistanceAtHighSpeed", increaseDistanceAtHighSpeed);
             accelerationAffectsCamDistance = Settings.GetValue<bool>("general", "accelerationAffectsCamDistance", accelerationAffectsCamDistance);
+            useEasingForCamDistance = Settings.GetValue<bool>("general", "useEasingForCamDistance", useEasingForCamDistance);
 
             // advanced
             lookFrontOffset = Settings.GetValue<float>("advanced", "lookFrontOffset", lookFrontOffset);
@@ -156,6 +160,7 @@ namespace CustomCameraVScript
             cameraRotationSpeed = Settings.GetValue<float>("advanced", "cameraRotationSpeed", cameraRotationSpeed);
             cameraRotationSpeedLowSpeed = Settings.GetValue<float>("advanced", "cameraRotationSpeedLowSpeed", cameraRotationSpeedLowSpeed);
             generalMovementSpeed = Settings.GetValue<float>("advanced", "generalMovementSpeed", generalMovementSpeed);
+            extraCamHeight = Settings.GetValue<float>("advanced", "extraCamHeight", extraCamHeight);
 
             //key-mappings
             toggleEnabledKey = Settings.GetValue<Keys>("keymappings", "toggleEnabledKey", toggleEnabledKey);
@@ -181,7 +186,7 @@ namespace CustomCameraVScript
             if (player.IsInVehicle() && customCamEnabled && !Game.Player.IsAiming && !Game.IsControlPressed(2, GTA.Control.VehicleLookBehind))
             {
                 Vehicle veh = player.CurrentVehicle;
-                var NewVehHash = veh.Model.Hash;
+                var NewVehHash = veh.GetHashCode();
 
                 if(oldVehHash != NewVehHash)
                 {
@@ -468,13 +473,13 @@ namespace CustomCameraVScript
             if (increaseDistanceAtHighSpeed)
             {
                 var factor = veh.Speed / maxHighSpeed;
-                currentDistanceIncrement = Mathr.Lerp(0f, maxHighSpeedDistanceIncrement, Easing.EaseOut(factor, EasingType.Cubic));
+                currentDistanceIncrement = Mathr.Lerp(0f, maxHighSpeedDistanceIncrement, Easing.EaseOut(factor, useEasingForCamDistance ? EasingType.Cubic : EasingType.Linear));
             }
 
             if (accelerationAffectsCamDistance)
             {
                 var factor = getVehicleAcceleration(veh) / (maxHighSpeed * 10f);
-                currentDistanceIncrement += Mathr.Lerp(0f, accelerationCamDistanceMultiplier, Easing.EaseOut(factor, EasingType.Quadratic));
+                currentDistanceIncrement += Mathr.Lerp(0f, accelerationCamDistanceMultiplier, Easing.EaseOut(factor, useEasingForCamDistance ? EasingType.Quadratic : EasingType.Linear));
             }
         }
 
@@ -540,7 +545,7 @@ namespace CustomCameraVScript
             
 
             // Fix stuttering (mantain camera distance fixed in local space)
-            Transform fixedDistanceTr = new Transform(currentPos + fullHeightOffset, Quaternion.Identity);
+            Transform fixedDistanceTr = new Transform(currentPos + fullHeightOffset + (Vector3.WorldUp * extraCamHeight), Quaternion.Identity);
             fixedDistanceTr.PointAt(pointAt);
 
             Quaternion rotInitial = fixedDistanceTr.quaternion;
@@ -557,7 +562,7 @@ namespace CustomCameraVScript
             //fixedDistanceTr.position = veh.Position + fullHeightOffset + (finalRot * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
             // End Autoalignment
 
-            fixedDistanceTr.position = veh.Position + fullHeightOffset + (rotInitial * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
+            fixedDistanceTr.position = veh.Position + fullHeightOffset + (Vector3.WorldUp * extraCamHeight) + (rotInitial * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
 
             //fixedDistanceTr.position = fixedDistanceTr.position + fullHeightOffset;
 
