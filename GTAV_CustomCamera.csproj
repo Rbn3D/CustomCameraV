@@ -49,9 +49,10 @@
     <Reference Include="System.Xaml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CustomCameraV.cs" />
+    <Compile Include="Scripts\CustomCameraV.cs" />
     <Compile Include="Easing\Easing.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Scripts\CustomCameraVLowUpdate.cs" />
     <Compile Include="Transform\Transform.cs" />
     <Compile Include="Tween\Ease.cs" />
     <Compile Include="Tween\GlideInfo.cs" />

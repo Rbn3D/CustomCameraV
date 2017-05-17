@@ -14,6 +14,29 @@ namespace CustomCameraVScript
 {
     public class CustomCameraV : Script
     {
+
+        private static CustomCameraV instance;
+
+        // Explicit static constructor to tell C# compiler
+        // not to mark type as beforefieldinit
+        static CustomCameraV()
+        {
+        }
+
+        //private CustomCameraV()
+        //{
+        //}
+
+        public static CustomCameraV Instance
+        {
+            get
+            {
+                return instance;
+            }
+        }
+
+        public Vehicle veh = null;
+
         private Camera mainCamera;
         private bool init = true;
         private bool camSet = false;
@@ -62,7 +85,7 @@ namespace CustomCameraVScript
         private bool isRearCameraOnly = false;
         private bool isMouseCameraOnly = false;
         private float fullLongitudeOffset;
-        private float towedVehicleLongitude;
+        private float towedVehicleLongitude = 0f;
         private float currentDistanceIncrement;
         private float smoothIsRearGear;
 
@@ -129,13 +152,15 @@ namespace CustomCameraVScript
         //public float alignmentSpeed = 0.0001f;
         //public float alignmentSpeed = 0.000092f;
         public float alignmentSpeed = 0.25f;
-        private Vehicle currentTrailer;
+        private Vehicle currentTrailer = null;
         private Vector3 smoothVelocityTrailer = new Vector3();
         private Vector3 smoothVelocityTrailerSmDamp = new Vector3();
         private Vector3 smoothVelocityAverage = new Vector3();
 
         public CustomCameraV()
         {
+            instance = this;
+
             this.Tick += OnTick;
             this.KeyUp += onKeyUp;
             this.KeyDown += onKeyDown;
@@ -189,7 +214,7 @@ namespace CustomCameraVScript
             var player = Game.Player.Character;
             if (player.IsInVehicle() && customCamEnabled && !Game.Player.IsAiming && !Game.IsControlPressed(2, GTA.Control.VehicleLookBehind))
             {
-                Vehicle veh = player.CurrentVehicle;
+                veh = player.CurrentVehicle;
                 var NewVehHash = veh.GetHashCode();
 
                 if(oldVehHash != NewVehHash)
@@ -206,7 +231,7 @@ namespace CustomCameraVScript
 
                     updateMouseAndGamepadInput(veh);
 
-                    processCameraCommon(player, veh);
+                    updateCameraCommon(player, veh);
 
                     if (!camSet)
                     {
@@ -283,7 +308,7 @@ namespace CustomCameraVScript
             dbgPanel.header = "CustomCameraV debug ( press " + toggleDebugKey.ToString() + " to hide )";
 
             dbgPanel.watchedVariables.Add("Veh Speed", () => { return veh.Speed; });
-            dbgPanel.watchedVariables.Add("Veh vel. mag", () => { return Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f); });
+            dbgPanel.watchedVariables.Add("Veh vel. mag", () => { return Mathr.Max(veh.Speed, veh.Velocity.Magnitude() * 22f); });
             dbgPanel.watchedVariables.Add("Smooth fixed vs velocity", () => { return smoothFixedVsVelocity; });
             dbgPanel.watchedVariables.Add("Smooth is in air", () => { return smoothIsInAir; });
             dbgPanel.watchedVariables.Add("Current gear", () => { return veh.CurrentGear; });
@@ -448,14 +473,14 @@ namespace CustomCameraVScript
             Transform fixedDistanceTr = new Transform(transform.position, Quaternion.Identity);
             fixedDistanceTr.PointAt(pointAt);
 
-            fixedDistanceTr.position = veh.Position /*+ (fullHeightOffset / 3f)*/ + (fixedDistanceTr.quaternion * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
+            fixedDistanceTr.position = veh.Position  + (fixedDistanceTr.quaternion * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
 
             transform.position = fixedDistanceTr.position;
 
             return transform;
         }
 
-        private void processCameraCommon(Ped player, Vehicle veh)
+        private void updateCameraCommon(Ped player, Vehicle veh)
         {
             smoothIsInAir = Mathr.Lerp(smoothIsInAir, veh.IsInAir ? 1f : 0f, 1.3f * getDeltaTime());
             smoothIsRearGear = Mathr.Lerp(smoothIsRearGear, veh.CurrentGear == 0 ? 1f : 0f, 1.3f * getDeltaTime());
@@ -467,20 +492,7 @@ namespace CustomCameraVScript
             // no offset if car is in the air
             finalDummyOffset = Mathr.Lerp(finalDummyOffset, 0f, smoothIsInAir);
 
-            towedVehicleLongitude = 0f;
-
-            if (veh.TowedVehicle != null)
-                towedVehicleLongitude = veh.TowedVehicle.Model.GetDimensions().Y + 1.0f;
-
-            if(Function.Call<bool>(Hash.IS_VEHICLE_ATTACHED_TO_TRAILER, veh))
-            {
-                currentTrailer = GetTrailer(veh);
-                towedVehicleLongitude = currentTrailer.Model.GetDimensions().Y + 1.0f;
-            }
-            else
-            {
-                currentTrailer = null;
-            }
+            // now towed vehicle/trailer stuff are checked only one time per second (for performance). See Scripts/CustomCameraVLowUpdate.cs
 
             fullLongitudeOffset = (distanceOffset + currentVehicleLongitudeOffset) /* + vehDummyOffset*/ + towedVehicleLongitude;
 
@@ -509,6 +521,24 @@ namespace CustomCameraVScript
             else
             {
                 return null;
+            }
+        }
+
+        public void updateTowedVehicleOrTrailerLongitude()
+        {
+            towedVehicleLongitude = 0f;
+
+            if (veh.TowedVehicle != null)
+                towedVehicleLongitude = veh.TowedVehicle.Model.GetDimensions().Y + 1.0f;
+
+            if (Function.Call<bool>(Hash.IS_VEHICLE_ATTACHED_TO_TRAILER, veh))
+            {
+                currentTrailer = GetTrailer(veh);
+                towedVehicleLongitude = currentTrailer.Model.GetDimensions().Y + 1.0f;
+            }
+            else
+            {
+                currentTrailer = null;
             }
         }
 
@@ -567,20 +597,6 @@ namespace CustomCameraVScript
             // Rotate the camera towards the velocity vector.
             var finalCamRotationSpeed = Mathr.Lerp(cameraRotationSpeedLowSpeed, cameraRotationSpeed, ((speedCoeff / lowSpeedLimit) * 1.32f) * getDeltaTime() * 51f);
             look = Mathr.QuaternionNLerp(currentRotation, look, (1.8f * finalCamRotationSpeed) * getDeltaTime());
-
-            //// Auto align over time
-            //if (alignmentSpeed > 0.001f)
-            //{
-            //    var wantedRot = veh.Rotation;
-            //    //wantedRot.y = 0f;
-            //    //look = Mathr.QuaternionNLerp(look, Quaternion.Euler(wantedRot), (alignmentSpeed * getDeltaTime()) * (1 - smoothIsInAir));
-
-            //    Transform alignTr = new Transform(currentPos + fullHeightOffset, Quaternion.Identity);
-            //    alignTr.PointAt(pointAt);
-            //    alignTr.quaternion = Quaternion.Lerp(alignTr.quaternion, Quaternion.Euler(wantedRot), alignmentSpeed * getDeltaTime() * (1 - smoothIsInAir));
-
-            //    currentPos = veh.Position + fullHeightOffset + (alignTr.quaternion * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
-            //}
             
 
             // Fix stuttering (mantain camera distance fixed in local space)
@@ -588,18 +604,6 @@ namespace CustomCameraVScript
             fixedDistanceTr.PointAt(pointAt);
 
             Quaternion rotInitial = fixedDistanceTr.quaternion;
-
-            // Auto alignment (WIP)
-
-            //Vector3 rotBehindVector = veh.Position + fullHeightOffset - (veh.Quaternion * Vector3.RelativeFront * (fullLongitudeOffset + currentDistanceIncrement));
-            //rotBehindVector.Z = fixedDistanceTr.position.Z;
-
-            //Quaternion rotBehind = Mathr.LookAt(rotBehindVector, pointAt);
-
-            //Quaternion finalRot = Quaternion.Lerp(rotInitial, rotBehind, alignmentSpeed * (1 - smoothIsInAir) * (1 - smoothIsRearGear));
-
-            //fixedDistanceTr.position = veh.Position + fullHeightOffset + (finalRot * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
-            // End Autoalignment
 
             fixedDistanceTr.position = veh.Position + fullHeightOffset + (Vector3.WorldUp * extraCamHeight) + (rotInitial * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
 
@@ -759,6 +763,8 @@ namespace CustomCameraVScript
 
         private void ExitCustomCameraView()
         {
+            veh = null;
+
             World.RenderingCamera = null;
             camSet = false;
         }
@@ -905,9 +911,9 @@ namespace CustomCameraVScript
             return value;
         }
 
-        public static float Lerp(float value1, float value2, float amount)
+        public static float Lerp(float value1, float value2, float ammount)
         {
-            return value1 + (value2 - value1) * Mathr.Clamp01(amount);
+            return value1 + (value2 - value1) * Mathr.Clamp01(ammount);
         }
 
         public static float InverseLerp(float from, float to, float value)
