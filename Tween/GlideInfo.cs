@@ -19,14 +19,14 @@ namespace Glide
 		{
 			get
 			{
-				return field != null ?
+				return !ReferenceEquals(field, null) ?
 					field.GetValue(Target) :
 					prop.GetValue(Target, null);
 			}
 			
 			set
 			{
-				if (field != null) field.SetValue(Target, value);
+				if (!ReferenceEquals(field, null)) field.SetValue(Target, value);
 				else prop.SetValue(Target, value, null);
 			}
 		}
@@ -54,11 +54,11 @@ namespace Glide
 			
 			var targetType = target as Type ?? target.GetType();
 			
-			if ((field = targetType.GetField(property, flags)) != null)
+			if (!ReferenceEquals((field = targetType.GetField(property, flags)), null))
 			{
 				PropertyType = field.FieldType;
 			}
-			else if ((prop = targetType.GetProperty(property, flags)) != null)
+			else if (!ReferenceEquals((prop = targetType.GetProperty(property, flags)), null))
 			{
 				PropertyType = prop.PropertyType;
 			}

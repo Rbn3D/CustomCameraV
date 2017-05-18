@@ -96,7 +96,7 @@ namespace Glide
 				var i = vars.Count;
 				while (i --> 0)
 				{
-					if (lerpers[i] != null)
+					if (!ReferenceEquals(lerpers[i], null))
 						lerpers[i].Initialize(start[i], end[i], behavior);
 				}
         	}
@@ -112,7 +112,7 @@ namespace Glide
 						return;
 				}
 				
-				if (time == 0 && timesRepeated == 0 && begin != null)
+				if (time == 0 && timesRepeated == 0 && !ReferenceEquals(begin, null))
 					begin();
 				
 				time += elapsed;
@@ -143,13 +143,13 @@ namespace Glide
 					}
 				}
 				
-				if (ease != null)
+				if (!ReferenceEquals(ease, null))
 					t = ease(t);
 				
 				int i = vars.Count;
 				while (i --> 0)
 				{
-					if (vars[i] != null)
+					if (!ReferenceEquals(vars[i], null))
 						vars[i].Value = lerpers[i].Interpolate(t, vars[i].Value, behavior);
 				}
 				
@@ -160,10 +160,10 @@ namespace Glide
 				if (time == 0 && behavior.HasFlag(Lerper.Behavior.Reflect))
 					Reverse();
 				
-				if (update != null)
+				if (!ReferenceEquals(update, null))
 					update();
 				
-				if (doComplete && complete != null)
+				if (doComplete && !ReferenceEquals(complete, null))
 					complete();
         	}
 		}
