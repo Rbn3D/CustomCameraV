@@ -8,8 +8,9 @@ using GTA;
 
 namespace CustomCameraVScript
 {
-    class CustomCameraVLowUpdate : Script
+/*    class CustomCameraVLowUpdate : Script
     {
+        private CustomCameraV customCam;
         bool customCamInitialized = false;
 
         public CustomCameraVLowUpdate()
@@ -26,14 +27,14 @@ namespace CustomCameraVScript
                 if (ReferenceEquals(CustomCameraV.Instance, null))
                     return;
                 else
+                {
                     customCamInitialized = true;
-            }
-            
+                    customCam = CustomCameraV.Instance;
+                }
+            } 
 
-            var customCam = CustomCameraV.Instance;
-
-            if(customCam.veh != null)
+            if(customCam.isTruck && customCam.veh != null)
                 customCam.updateTowedVehicleOrTrailerLongitude();
         }
-    }
+    }*/
 }

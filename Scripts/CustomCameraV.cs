@@ -15,25 +15,25 @@ namespace CustomCameraVScript
     public class CustomCameraV : Script
     {
 
-        private static CustomCameraV instance;
+        //private static CustomCameraV instance;
 
-        // Explicit static constructor to tell C# compiler
-        // not to mark type as beforefieldinit
-        static CustomCameraV()
-        {
-        }
-
-        //private CustomCameraV()
+        //// Explicit static constructor to tell C# compiler
+        //// not to mark type as beforefieldinit
+        //static CustomCameraV()
         //{
         //}
 
-        public static CustomCameraV Instance
-        {
-            get
-            {
-                return instance;
-            }
-        }
+        ////private CustomCameraV()
+        ////{
+        ////}
+
+        //public static CustomCameraV Instance
+        //{
+        //    get
+        //    {
+        //        return instance;
+        //    }
+        //}
 
         public Vehicle veh = null;
 
@@ -85,8 +85,8 @@ namespace CustomCameraVScript
         private bool isRearCameraOnly = false;
         private bool isMouseCameraOnly = false;
         private float fullLongitudeOffset;
-        private float towedVehicleLongitude = 0f;
-        private float currentDistanceIncrement;
+        private float towedVehicleLongitude = 1f;
+        private float currentDistanceIncrement = 0f;
         private float smoothIsRearGear;
 
         private Transform rearCamCurrentTransform;
@@ -157,9 +157,11 @@ namespace CustomCameraVScript
         private Vector3 smoothVelocityTrailerSmDamp = new Vector3();
         private Vector3 smoothVelocityAverage = new Vector3();
 
+        public bool isTowOrTrailerTruck = false;
+
         public CustomCameraV()
         {
-            instance = this;
+            // instance = this;
 
             this.Tick += OnTick;
             this.KeyUp += onKeyUp;
@@ -170,6 +172,24 @@ namespace CustomCameraVScript
             Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
 
             this.LoadSettings();
+
+            /*VehicleHash[] truckList =
+            {
+                VehicleHash.FireTruck,
+                VehicleHash.TipTruck,
+                VehicleHash.TipTruck2,
+                VehicleHash.TowTruck,
+                VehicleHash.TowTruck2,
+                VehicleHash.UtilityTruck,
+                VehicleHash.UtilityTruck2,
+                VehicleHash.UtilityTruck3,
+                VehicleHash.UtilliTruck,
+                VehicleHash.UtilliTruck2,
+                VehicleHash.UtilliTruck3,
+            };*/
+
+            // Towed vehicles / trailer callback
+            tweener.Timer(2f, 2f).Repeat().OnComplete(new Action(updateTowedVehicleOrTrailerLongitude));
         }
 
         private void LoadSettings()
@@ -308,11 +328,11 @@ namespace CustomCameraVScript
             dbgPanel.header = "CustomCameraV debug ( press " + toggleDebugKey.ToString() + " to hide )";
 
             dbgPanel.watchedVariables.Add("Veh Speed", () => { return veh.Speed; });
-            dbgPanel.watchedVariables.Add("Veh vel. mag", () => { return Mathr.Max(veh.Speed, veh.Velocity.Magnitude() * 22f); });
+            dbgPanel.watchedVariables.Add("Veh vel. mag", () => { return Mathr.Max(veh.Speed, veh.Velocity.Magnitude() * 0.045454f); });
             dbgPanel.watchedVariables.Add("Smooth fixed vs velocity", () => { return smoothFixedVsVelocity; });
             dbgPanel.watchedVariables.Add("Smooth is in air", () => { return smoothIsInAir; });
             dbgPanel.watchedVariables.Add("Current gear", () => { return veh.CurrentGear; });
-            dbgPanel.watchedVariables.Add("LookFrontOffset", () => { return computeLookFrontOffset(veh, Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f), smoothIsInAir); });
+            dbgPanel.watchedVariables.Add("LookFrontOffset", () => { return computeLookFrontOffset(veh, Mathr.Max(veh.Speed, veh.Velocity.Magnitude() * 0.045454f), smoothIsInAir); });
             dbgPanel.watchedVariables.Add("Height", () => { return currentVehicleHeight; });
             dbgPanel.watchedVariables.Add("Longitude", () => { return currentVehicleLongitudeOffset; });
             dbgPanel.watchedVariables.Add("MouseX", () => { return InputR.MouseX; });
@@ -332,6 +352,9 @@ namespace CustomCameraVScript
             dbgPanel.watchedVariables.Add("alignFactor", () => { return alignmentSpeed * (1 - smoothIsInAir) * (1 - smoothIsRearGear); });
             dbgPanel.watchedVariables.Add("vehHeight", () => { return veh.Model.GetDimensions().Z; });
             dbgPanel.watchedVariables.Add("vehHeightFn", () => { return getVehicleHeight(veh); });
+            dbgPanel.watchedVariables.Add("towedVehLong", () => { return towedVehicleLongitude; });
+            dbgPanel.watchedVariables.Add("isIndustrial", () => { return isTowOrTrailerTruck; });
+            dbgPanel.watchedVariables.Add("vehClass", () => { return veh.ClassType; });
         }
 
         private void drawDebugStats(Vehicle veh)
@@ -370,12 +393,14 @@ namespace CustomCameraVScript
 
         private void UpdateVehicleProperties(Vehicle veh)
         {
-            currentVehicleHeight = getVehicleHeight(veh) / 1.2f;
+            currentVehicleHeight = getVehicleHeight(veh) * 0.8333f;
             currentVehicleLongitudeOffset = getVehicleLongitudeOffset(veh);
             isCycleOrByke = veh.ClassType == VehicleClass.Cycles || veh.ClassType == VehicleClass.Motorcycles;
             isSuitableForCam = isVehicleSuitableForCustomCamera(veh);
 
             fullHeightOffset = (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
+
+            isTowOrTrailerTruck = veh.ClassType == VehicleClass.Commercial || veh.HasTowArm;
         }
 
         private void updateMouseAndGamepadInput(Vehicle veh)
@@ -484,7 +509,7 @@ namespace CustomCameraVScript
         {
             smoothIsInAir = Mathr.Lerp(smoothIsInAir, veh.IsInAir ? 1f : 0f, 1.3f * getDeltaTime());
             smoothIsRearGear = Mathr.Lerp(smoothIsRearGear, veh.CurrentGear == 0 ? 1f : 0f, 1.3f * getDeltaTime());
-            speedCoeff = Mathr.Max(veh.Speed, veh.Velocity.Magnitude() / 22f);
+            speedCoeff = Mathr.Max(veh.Speed, veh.Velocity.Magnitude() * 0.045454f);
             pointAt = veh.Position + fullHeightOffset + (veh.ForwardVector * computeLookFrontOffset(veh, speedCoeff, smoothIsInAir));
 
             finalDummyOffset = Mathr.Lerp(vehDummyOffset, vehDummyOffsetHighSpeed, speedCoeff / (maxHighSpeed * 1.6f));
@@ -526,9 +551,12 @@ namespace CustomCameraVScript
 
         public void updateTowedVehicleOrTrailerLongitude()
         {
+            if (!isTowOrTrailerTruck || ReferenceEquals(veh, null))
+                return;
+
             towedVehicleLongitude = 0f;
 
-            if (veh.TowedVehicle != null)
+            if (!ReferenceEquals(veh.TowedVehicle, null))
                 towedVehicleLongitude = veh.TowedVehicle.Model.GetDimensions().Y + 1.0f;
 
             if (Function.Call<bool>(Hash.IS_VEHICLE_ATTACHED_TO_TRAILER, veh))
@@ -560,7 +588,7 @@ namespace CustomCameraVScript
             Quaternion vehQuat = veh.Quaternion;
             smoothVelocity = Mathr.Vector3SmoothDamp(smoothVelocity, veh.Velocity.Normalized, ref smoothVelocitySmDamp, generalMovementSpeed, 9999999f, responsivenessMultiplier * getDeltaTime());
 
-            if (currentTrailer != null)
+            if (!ReferenceEquals(currentTrailer, null))
             {
                 vehQuat = Quaternion.Lerp(veh.Quaternion, currentTrailer.Quaternion, 0.5f);
                 smoothVelocityTrailer = Mathr.Vector3SmoothDamp(smoothVelocityTrailer, currentTrailer.Velocity.Normalized, ref smoothVelocityTrailerSmDamp, generalMovementSpeed, 9999999f, responsivenessMultiplier * getDeltaTime());
@@ -574,14 +602,14 @@ namespace CustomCameraVScript
 
             // Compute camera postition rear the direction of the vehcle
             if(speedCoeff >= stoppedSpeed)
-                wantedPosVelocity = wantedPos + Mathr.QuaternionLookRotation(currentTrailer == null ? smoothVelocity : smoothVelocityAverage) * Vector3.RelativeBottom * fullLongitudeOffset;
+                wantedPosVelocity = wantedPos + Mathr.QuaternionLookRotation(ReferenceEquals(currentTrailer, null) ? smoothVelocity : smoothVelocityAverage) * Vector3.RelativeBottom * fullLongitudeOffset;
 
             // Smooth factor between two above cam positions
             smoothFixedVsVelocity = Mathr.Lerp(smoothFixedVsVelocity, fixedVsVelocity, (fixedVsVelocitySpeed) * getDeltaTime());
 
             if(!isCycleOrByke)
             {
-                tempSmoothVsVl = Mathr.Lerp(tempSmoothVsVl, Mathr.Clamp(speedCoeff / 2.3f, 0.025f, 1f), (fixedVsVelocitySpeed / 20f));
+                tempSmoothVsVl = Mathr.Lerp(tempSmoothVsVl, Mathr.Clamp(speedCoeff * 0.4347826f, 0.025f, 1f), (fixedVsVelocitySpeed * 0.05f));
                 smoothFixedVsVelocity = Mathr.Lerp(0f, smoothFixedVsVelocity, tempSmoothVsVl);
             }
 
@@ -693,10 +721,10 @@ namespace CustomCameraVScript
 
             if(height > 1.6f)
             {
-                distanceAdd = ((height - 1.6f) / 1.4f);
+                distanceAdd = (height - 1.6f);
             }
 
-            if(veh.HasBone("bumper_r"))
+            if (veh.HasBone("bumper_r"))
             {
                 var pos = veh.Position;
                 var rearBumperPos = veh.GetBoneCoord("bumper_r");
@@ -712,14 +740,6 @@ namespace CustomCameraVScript
                 return Vector3.Distance2D(pos, spoilerPos) + distanceAdd;
             }
 
-            if (veh.HasBone("windscreen_r"))
-            {
-                var pos = veh.Position;
-                var rearGlassPos = veh.GetBoneCoord("windscreen_r");
-
-                return Vector3.Distance2D(pos, rearGlassPos) + 0.6f + distanceAdd;
-            }
-
             if (veh.HasBone("neon_b"))
             {
                 var pos = veh.Position;
@@ -728,18 +748,33 @@ namespace CustomCameraVScript
                 return Vector3.Distance2D(pos, rarNeonPos) + 0.1f + distanceAdd;
             }
 
+            if (veh.HasBone("boot"))
+            {
+                var pos = veh.Position;
+                var bootPos = veh.GetBoneCoord("boot");
+
+                return Vector3.Distance2D(pos, bootPos) + 2.0f + distanceAdd;
+            }
+
+            if (veh.HasBone("windscreen_r"))
+            {
+                var pos = veh.Position;
+                var rearGlassPos = veh.GetBoneCoord("windscreen_r");
+
+                return Vector3.Distance2D(pos, rearGlassPos) + 1.0f + distanceAdd;
+            }
+
             var longitude =  veh.Model.GetDimensions().Y;
 
-            // bikes and motorbikes has too near camera, so bump distance by 0.5 game units
             if (veh.Model.IsBicycle || veh.Model.IsBike)
             {
-                longitude += 2.4f;
+                longitude += 1.4f;
             } else
             {
                 longitude += 3.6f;
             }
 
-            return longitude / 2f + distanceAdd;
+            return (longitude * 0.5f) + distanceAdd;
         }
 
 
