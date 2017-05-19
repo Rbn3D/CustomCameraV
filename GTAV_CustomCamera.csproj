@@ -50,6 +50,8 @@
     <Reference Include="System.Xaml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Helper\InputR.cs" />
+    <Compile Include="Helper\MathR.cs" />
     <Compile Include="Scripts\CustomCameraV.cs" />
     <Compile Include="Easing\Easing.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

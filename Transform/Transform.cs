@@ -35,7 +35,7 @@ namespace CustomCameraVScript
 
         public void PointAt(Vector3 target)
         {
-            var res = Mathr.LookAt(position, target);
+            var res = MathR.LookAt(position, target);
             quaternion = res;
             rotation = res.ToEulerAngles();
         }
