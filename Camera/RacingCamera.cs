@@ -12,9 +12,6 @@ namespace CustomCameraVScript
 {
     class RacingCamera : CustomCamera
     {
-        //public float currentRotZ = 0f;
-        //public float currentRotX = 0f;
-
         public Quaternion smoothQuat = Quaternion.Identity;
 
         public float camDistance = 5.8f;
