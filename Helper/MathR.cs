@@ -243,6 +243,24 @@ namespace CustomCameraVScript
             return (float)((double)a.X * (double)a.X + (double)a.Y * (double)a.Y + (double)a.Z * (double)a.Z);
         }
 
+        public static float LerpAngle(float a, float b, float t)
+        {
+            float num = MathR.Repeat(b - a, 360f);
+            if ((double)num > 180.0)
+                num -= 360f;
+            return a + num * MathR.Clamp01(t);
+        }
+
+        public static float Repeat(float t, float length)
+        {
+            return t - MathR.Floor(t / length) * length;
+        }
+
+        public static float Floor(float f)
+        {
+            return (float)Math.Floor((double)f);
+        }
+
         /// <summary>
         /// Evaluates a rotation needed to be applied to an object positioned at sourcePoint to face destPoint
         /// </summary>

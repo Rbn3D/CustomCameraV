@@ -4,6 +4,11 @@ A custom vehicle camera system for Grand Theft Auto V
 
 Changelog:
 -----
+v0.9.8
+Big internal code refactor
+Support for multiple cameras (switchables with a hotkey)
+Camera modes are Default(legacy), Racing, Drifting.
+-----
 v0.9.7
 -Various performance optimizations
 -Fixed blinking error
