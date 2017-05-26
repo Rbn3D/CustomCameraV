@@ -6,6 +6,13 @@ namespace CustomCameraVScript
 {
     public static class MathR
     {
+        public const float PI = 3.141593f;
+
+        public static float Atan2(float f, float t)
+        {
+            return (float)Math.Atan2((double)f, (double)t);
+        }
+
         public static float Magnitude(this Vector3 vector)
         {
             return (vector.X * vector.X + vector.Y * vector.Y + vector.Z * vector.Z);
@@ -51,9 +58,74 @@ namespace CustomCameraVScript
             return QuaternionFromEuler(vec.X, vec.Y, vec.Z);
         }
 
+        // This method can be BUGGY !
         public static Quaternion QuaternionLookRotation(Vector3 forward, Vector3 up)
         {
-            forward.Normalize();
+            forward = forward.Normalized;
+
+            Vector3 vector = Vector3.Normalize(forward);
+            Vector3 vector2 = Vector3.Normalize(Vector3.Cross(up, vector));
+            Vector3 vector3 = Vector3.Cross(vector, vector2);
+            var m00 = vector2.X;
+            var m01 = vector2.Y;
+            var m02 = vector2.Z;
+            var m10 = vector3.X;
+            var m11 = vector3.Y;
+            var m12 = vector3.Z;
+            var m20 = vector.X;
+            var m21 = vector.Y;
+            var m22 = vector.Z;
+
+
+            float num8 = (m00 + m11) + m22;
+            var quaternion = new Quaternion();
+            if (num8 > 0f)
+            {
+                var num = (float)Math.Sqrt(num8 + 1f);
+                quaternion.W = num * 0.5f;
+                num = 0.5f / num;
+                quaternion.X = (m12 - m21) * num;
+                quaternion.Y = (m20 - m02) * num;
+                quaternion.Z = (m01 - m10) * num;
+                return quaternion;
+            }
+            if ((m00 >= m11) && (m00 >= m22))
+            {
+                var num7 = (float)Math.Sqrt(((1f + m00) - m11) - m22);
+                var num4 = 0.5f / num7;
+                quaternion.X = 0.5f * num7;
+                quaternion.Y = (m01 + m10) * num4;
+                quaternion.Z = (m02 + m20) * num4;
+                quaternion.W = (m12 - m21) * num4;
+                return quaternion;
+            }
+            if (m11 > m22)
+            {
+                var num6 = (float)Math.Sqrt(((1f + m11) - m00) - m22);
+                var num3 = 0.5f / num6;
+                quaternion.X = (m10 + m01) * num3;
+                quaternion.Y = 0.5f * num6;
+                quaternion.Z = (m21 + m12) * num3;
+                quaternion.W = (m20 - m02) * num3;
+                return quaternion;
+            }
+            var num5 = (float)Math.Sqrt(((1f + m22) - m00) - m11);
+            var num2 = 0.5f / num5;
+            quaternion.X = (m20 + m02) * num2;
+            quaternion.Y = (m21 + m12) * num2;
+            quaternion.Z = 0.5f * num5;
+            quaternion.W = (m01 - m10) * num2;
+            return quaternion;
+        }
+
+        // This method can be BUGGY !
+        public static Quaternion LookRotation(Vector3 forward, Vector3 up)
+        {
+            //forward = -new Vector3(forward.X, forward.Z, forward.Y);
+            //forward.Z = -forward.Z;
+            //up.Z = -up.Z;
+
+            //forward.Normalize();
 
             Vector3 vector = Vector3.Normalize(forward);
             Vector3 vector2 = Vector3.Normalize(Vector3.Cross(up, vector));
@@ -118,9 +190,25 @@ namespace CustomCameraVScript
         }
 
         // Cheaper than Slerp
-        public static Quaternion QuaternionNLerp(Quaternion start, Quaternion end, float ammount)
+        public static Quaternion EulerNlerp(Quaternion start, Quaternion end, float ammount)
         {
             return QuaternionFromEuler(Vector3.Lerp(start.ToEulerAngles(), end.ToEulerAngles(), MathR.Clamp01(ammount)).Normalized);
+        }
+
+        public static Quaternion QuatNlerp(Quaternion start, Quaternion end, float ammount, bool shortestPath = true)
+        {
+            Quaternion result;
+                float fCos = Quaternion.Dot(start, end);
+		    if (fCos< 0.0f && shortestPath)
+		    {
+			    result = start + ammount* ((-end) - start);
+		    }
+		    else
+		    {
+			    result = start + ammount* (end - start);
+		    }
+                result.Normalize();
+                return result;
         }
 
         public static float SmoothStep(float from, float to, float t)
@@ -288,7 +376,6 @@ namespace CustomCameraVScript
             return CreateFromAxisAngle(rotAxis, rotAngle);
         }
 
-        // just in case you need that function also
         public static Quaternion CreateFromAxisAngle(Vector3 axis, float angle)
         {
             float halfAngle = angle * .5f;
@@ -301,5 +388,4 @@ namespace CustomCameraVScript
             return q;
         }
     }
-
 }

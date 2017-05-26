@@ -52,7 +52,7 @@
   <ItemGroup>
     <Compile Include="Camera\CustomCamera.cs" />
     <Compile Include="Camera\LegacyCamera.cs" />
-    <Compile Include="Camera\RacingCamera.cs" />
+    <Compile Include="Camera\SmoothCamera.cs" />
     <Compile Include="Helper\InputR.cs" />
     <Compile Include="Helper\MathR.cs" />
     <Compile Include="Helper\Time.cs" />

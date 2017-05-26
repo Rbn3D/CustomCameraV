@@ -104,7 +104,7 @@ namespace CustomCameraVScript
             availableCams = new CustomCamera[2];
 
             availableCams[0] = new LegacyCamera(this, tweener);
-            availableCams[1] = new RacingCamera(this, tweener);
+            availableCams[1] = new SmoothCamera(this, tweener);
             //availableCams[0] = new LegacyCamera(this, tweener);
 
             _currentCam = availableCams[currentCameraIndex];
@@ -274,6 +274,11 @@ namespace CustomCameraVScript
             dbgPanel.watchedVariables.Add("vehRotY", () => { return veh.Rotation.Y; });
             dbgPanel.watchedVariables.Add("vehRotZ", () => { return veh.Rotation.Z; });
 
+
+            dbgPanel.watchedVariables.Add("vehVelocityX", () => { return veh.Velocity.X; });
+            dbgPanel.watchedVariables.Add("vehVelocityY", () => { return veh.Velocity.Y; });
+            dbgPanel.watchedVariables.Add("vehVelocityZ", () => { return veh.Velocity.Z; });
+
             dbgPanel.watchedVariables.Add("currentCameraIndex", () => { return currentCameraIndex; });
             dbgPanel.watchedVariables.Add("currentCameraName", () => { return _currentCam.getCameraName(); });
         }
@@ -385,7 +390,7 @@ namespace CustomCameraVScript
 
         private void updateCameraCommon()
         {
-            smoothIsInAir = MathR.Lerp(smoothIsInAir, veh.IsInAir ? 1f : 0f, 1.3f * getDeltaTime());
+            smoothIsInAir = MathR.Lerp(smoothIsInAir, veh.IsInAir ? 1f : 0f, 2f * getDeltaTime());
             smoothIsRearGear = MathR.Lerp(smoothIsRearGear, veh.CurrentGear == 0 ? 1f : 0f, 1.3f * getDeltaTime());
             //speedCoeff = MathR.Max(veh.Speed, veh.Velocity.Magnitude() * 0.045454f);
             //pointAt = veh.Position + fullHeightOffset + (veh.ForwardVector * computeLookFrontOffset(veh, speedCoeff, smoothIsInAir));

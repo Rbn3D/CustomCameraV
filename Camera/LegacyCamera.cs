@@ -145,7 +145,7 @@ namespace CustomCameraVScript
                 cameraMouseLooking = UpdateCameraMouse();
 
                 targetCamera.Position = Vector3.Lerp(rearCameraTransform.position, cameraMouseLooking.position, MathR.Clamp01(script.smoothIsMouseLooking));
-                targetCamera.Rotation = MathR.QuaternionNLerp(rearCameraTransform.quaternion, cameraMouseLooking.quaternion, script.smoothIsMouseLooking).ToEulerAngles();
+                targetCamera.Rotation = MathR.EulerNlerp(rearCameraTransform.quaternion, cameraMouseLooking.quaternion, script.smoothIsMouseLooking).ToEulerAngles();
             }
         }
 
@@ -222,7 +222,7 @@ namespace CustomCameraVScript
         private Transform UpdateCameraRear()
         {
             // smooth out current rotation and position
-            currentRotation = MathR.QuaternionNLerp(currentRotation, rearCamCurrentTransform.quaternion, (responsivenessMultiplier * generalMovementSpeed) * Time.getDeltaTime());
+            currentRotation = MathR.EulerNlerp(currentRotation, rearCamCurrentTransform.quaternion, (responsivenessMultiplier * generalMovementSpeed) * Time.getDeltaTime());
             currentPos = Vector3.Lerp(currentPos, rearCamCurrentTransform.position, MathR.Clamp01((responsivenessMultiplier * generalMovementSpeed) * Time.getDeltaTime()));
 
             Quaternion look;
@@ -266,7 +266,7 @@ namespace CustomCameraVScript
 
             // Rotate the camera towards the velocity vector.
             var finalCamRotationSpeed = MathR.Lerp(cameraRotationSpeedLowSpeed, cameraRotationSpeed, ((speedCoeff / lowSpeedLimit) * 1.32f) * Time.getDeltaTime() * 51f);
-            look = MathR.QuaternionNLerp(currentRotation, look, (1.8f * finalCamRotationSpeed) * Time.getDeltaTime());
+            look = MathR.EulerNlerp(currentRotation, look, (1.8f * finalCamRotationSpeed) * Time.getDeltaTime());
 
 
             // Fix stuttering (mantain camera distance fixed in local space)
