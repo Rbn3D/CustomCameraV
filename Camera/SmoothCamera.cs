@@ -14,9 +14,7 @@ namespace CustomCameraVScript
     {
         public Quaternion smoothQuat = Quaternion.Identity;
 
-        public float camDistance = 5.8f;
-        public float heightOffset = 1.75f;
-        public float extraCamHeight = 0.1f;
+        //public float camDistance = 5.8f;
         public float rotationSpeed = 4.75f;
 
         public bool useVariableRotSpeed = true;
@@ -31,6 +29,7 @@ namespace CustomCameraVScript
         public SmoothCamera(CustomCameraV script, Tweener tweener) : base(script, tweener)
         {
             // one time initialization
+            maxHighSpeedDistanceIncrement = 1f;
         }
 
         public override string getCameraName()
@@ -53,12 +52,13 @@ namespace CustomCameraVScript
 
         public override void updateCamera()
         {
+            base.updateCamera();
+
             updateCameraCommon();
 
-            var heightOffsetV3 = Vector3.WorldUp * heightOffset;
             var camExtraHeightV3 = Vector3.WorldUp * extraCamHeight;
 
-            var posCenter = veh.Position + heightOffsetV3;
+            var posCenter = veh.Position + fullHeightOffset;
 
             float rotSpeed = rotationSpeed;
             if(useVariableRotSpeed)
@@ -70,26 +70,34 @@ namespace CustomCameraVScript
             //smoothQuat = MathR.QuatNlerp(smoothQuat, veh.Quaternion, MathR.Clamp01(rotationSpeed * Time.getDeltaTime()));
             smoothQuat = Quaternion.SlerpUnclamped(smoothQuat, veh.Quaternion, rotationSpeed * Time.getDeltaTime());
 
-            var finalQuat = smoothQuat;
-
-            if (script.smoothIsInAir > 0.001f)
+            if (veh.Speed > 0.05f)
             {
-                if (veh.Speed > 0.05f)
-                {
-                    //velQuat = MathR.QuaternionLookRotation(veh.Velocity);
-                    velQuat = MathR.LookAt(veh.Position, veh.Position + (veh.Velocity.Normalized * 2f));
-                }
-
-                finalQuat = Quaternion.Lerp(smoothQuat, velQuat, script.smoothIsInAir);
+                //velQuat = MathR.QuaternionLookRotation(veh.Velocity);
+                velQuat = MathR.LookAt(Vector3.Zero, smoothVelocity);
             }
 
-            targetCamera.Position = posCenter + camExtraHeightV3 + (finalQuat * Vector3.RelativeBack * camDistance);
-            targetCamera.PointAt(posCenter);
+            var finalQuat = Quaternion.Lerp(smoothQuat, velQuat, script.smoothIsInAir);
+
+            float finalDistMult = 1f;
+            //if(veh.Speed > 0.01f) // commented out until velQuat (velocity quaternion) gets fixed, it rarely causes wrong rotations
+            //{
+            //    // TODO Optimize?
+            //    finalDistMult = Quaternion.AngleBetween(finalQuat, velQuat) / 180f;
+            //    finalDistMult = MathR.Lerp(1f, -1f, finalDistMult);
+            //    //finalDistMult = MathR.Lerp(1f, finalDistMult, veh.Speed * 0.2f);
+            //    //finalDistMult = MathR.Lerp(finalDistMult, 1f, script.smoothIsInAir);
+            //}
+
+            targetCamera.Position = posCenter + camExtraHeightV3 + (finalQuat * Vector3.RelativeBack * (fullLongitudeOffset + ( currentDistanceIncrement * finalDistMult )));
+
+            var pointAt = posCenter - finalQuat * Vector3.RelativeBack * (currentDistanceIncrement + 2f);
+
+            targetCamera.PointAt(pointAt);
         }
 
         public void updateCameraCommon()
         {
-            fullLongitudeOffset = (distanceOffset + currentVehicleLongitudeOffset) /* + vehDummyOffset*/ + towedVehicleLongitude;
+            fullLongitudeOffset = distanceOffset + currentVehicleLongitudeOffset + towedVehicleLongitude;
 
             currentDistanceIncrement = 0f;
 

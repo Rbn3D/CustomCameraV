@@ -29,12 +29,18 @@ namespace CustomCameraVScript
         public float fullLongitudeOffset;
         public Vector3 fullHeightOffset;
 
-        public float distanceOffset = 1.4f;
+        public float distanceOffset = 1.75f;
+
+        public float fov = 75f;
+        public float heightOffset = 0.3f;
+        public float extraCamHeight = 0.10f;
 
         public bool accelerationAffectsCamDistance = true;
         public bool useEasingForCamDistance = true;
         public float accelerationCamDistanceMultiplier = 2.38f;
         private float lastVelocityMagnitude = 0f;
+        public Vector3 smoothVelocity = new Vector3();
+        //public Vector3 smoothVelocitySmDamp = new Vector3();
 
         public ThirdPersonCamera(CustomCameraV script, Tweener tweener) : base(script, tweener)
         {
@@ -55,7 +61,11 @@ namespace CustomCameraVScript
             currentVehicleLongitudeOffset = getVehicleLongitudeOffset(veh);
             isCycleOrByke = veh.ClassType == VehicleClass.Cycles || veh.ClassType == VehicleClass.Motorcycles;
 
+            fullHeightOffset = (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
+
             isTowOrTrailerTruck = veh.ClassType == VehicleClass.Commercial || veh.HasTowArm || veh.HasBone("attach_female");
+
+            smoothVelocity = veh.Velocity;
         }
 
         public float getVehicleHeight(Vehicle veh)
@@ -133,6 +143,11 @@ namespace CustomCameraVScript
             }
 
             return (longitude * 0.5f) + distanceAdd;
+        }
+
+        public override void updateCamera()
+        {
+            smoothVelocity = Vector3.Lerp(smoothVelocity, veh.Velocity, 20f * Time.getDeltaTime());
         }
 
         public void updateTowedVehicleOrTrailerLongitude()

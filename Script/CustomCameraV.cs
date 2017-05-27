@@ -30,10 +30,6 @@ namespace CustomCameraVScript
         public Tween mouseLookTimer;
         public float smoothIsMouseLooking = 0f;
 
-        public Vector3 smoothVelocityTrailer = new Vector3();
-        public Vector3 smoothVelocityTrailerSmDamp = new Vector3();
-        public Vector3 smoothVelocityAverage = new Vector3();
-
         public DebugPanel dbgPanel;
         public Tweener tweener = new Tweener();
         public int oldVehHash = -1;
@@ -72,6 +68,7 @@ namespace CustomCameraVScript
                 {
                     _currentCam.targetCamera = gameCamera;
                     _currentCam.setupCamera();
+                    _currentCam.UpdateVehicleProperties();
                 }
             }
         }
@@ -220,6 +217,7 @@ namespace CustomCameraVScript
         {
             CurrentCamera.targetCamera = gameCamera;
             CurrentCamera.setupCamera();
+            CurrentCamera.UpdateVehicleProperties();
         }
 
         private void setupDebugStats(Vehicle veh)

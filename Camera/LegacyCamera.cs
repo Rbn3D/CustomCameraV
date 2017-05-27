@@ -19,8 +19,6 @@ namespace CustomCameraVScript
 
         // How fast lerp between rear and velocity cam position when neccesary
         private float fixedVsVelocitySpeed = 2.5f;
-        private Vector3 smoothVelocity = new Vector3();
-        private Vector3 smoothVelocitySmDamp = new Vector3();
 
         //private float smoothIsNotRearGear = 1f;
 
@@ -31,10 +29,6 @@ namespace CustomCameraVScript
         private float speedCoeff = 0f;
 
         private Transform rearCamCurrentTransform;
-
-        public float fov = 75f;
-        public float heightOffset = 0.28f;
-        public float extraCamHeight = 0.10f;
 
         public float lookFrontOffset = -0.25f;
         public float lookFrontOffsetLowSpeed = -0.4f;
@@ -95,6 +89,8 @@ namespace CustomCameraVScript
 
         public override void updateCamera()
         {
+            base.updateCamera();
+
             Transform rearCameraTransform;
             Transform cameraMouseLooking;
 
@@ -221,7 +217,6 @@ namespace CustomCameraVScript
             var fixedVsVelocity = getFixedVsVelocityFactor(speedCoeff);
 
             Quaternion vehQuat = veh.Quaternion;
-            smoothVelocity = MathR.Vector3SmoothDamp(smoothVelocity, veh.Velocity.Normalized, ref smoothVelocitySmDamp, generalMovementSpeed, 9999999f, responsivenessMultiplier * Time.getDeltaTime());
 
             // Compute camera position rear the vechicle
             var wantedPosFixed = wantedPos - veh.Quaternion * Vector3.RelativeFront * fullLongitudeOffset;
@@ -319,23 +314,22 @@ namespace CustomCameraVScript
             }
         }
 
-        private void ResetSmoothValues()
-        {
-            smoothFixedVsVelocity = 0f;
-            //smoothIsNotRearGear = 1f;
-            smoothVelocity = Vector3.Zero;
-            smoothVelocitySmDamp = Vector3.Zero;
-            tempSmoothVsVl = 0.025f;
+        //private void ResetSmoothValues()
+        //{
+        //    smoothFixedVsVelocity = 0f;
+        //    //smoothIsNotRearGear = 1f;
+        //    smoothVelocity = Vector3.Zero;
+        //    smoothVelocitySmDamp = Vector3.Zero;
+        //    tempSmoothVsVl = 0.025f;
 
-            currentPos = veh.Position - (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
-            wantedPosVelocity = veh.Position - (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
-            currentRotation = veh.Quaternion;
-        }
+        //    currentPos = veh.Position - (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
+        //    wantedPosVelocity = veh.Position - (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
+        //    currentRotation = veh.Quaternion;
+        //}
 
         public override void UpdateVehicleProperties()
         {
             base.UpdateVehicleProperties();
-            fullHeightOffset = (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
         }
 
         //private void endFreeLookingSmooth()
