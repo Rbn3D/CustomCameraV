@@ -21,7 +21,6 @@ namespace CustomCameraVScript
         public bool camSet = false;
 
         public bool customCamEnabled = true;
-        public bool isCycleOrByke;
 
         public bool showDebugStats = false;
 
@@ -31,15 +30,9 @@ namespace CustomCameraVScript
         public Tween mouseLookTimer;
         public float smoothIsMouseLooking = 0f;
 
-        public float currentVehicleHeight;
-        public float currentVehicleLongitudeOffset;
-
-        public Vehicle currentTrailer = null;
         public Vector3 smoothVelocityTrailer = new Vector3();
         public Vector3 smoothVelocityTrailerSmDamp = new Vector3();
         public Vector3 smoothVelocityAverage = new Vector3();
-
-        public bool isTowOrTrailerTruck = false;
 
         public DebugPanel dbgPanel;
         public Tweener tweener = new Tweener();
@@ -58,7 +51,6 @@ namespace CustomCameraVScript
         public bool isRearCameraOnly = false;
         public bool isMouseCameraOnly = false;
 
-        public float towedVehicleLongitude = 1f;
         public float smoothIsRearGear;
         public float smoothIsInAir = 0f;
 
@@ -98,14 +90,10 @@ namespace CustomCameraVScript
 
             this.LoadSettings();
 
-            // Towed vehicles / trailer callback
-            tweener.Timer(2f, 2f).Repeat().OnComplete(new Action(updateTowedVehicleOrTrailerLongitude));
-
             availableCams = new CustomCamera[2];
 
             availableCams[0] = new LegacyCamera(this, tweener);
             availableCams[1] = new SmoothCamera(this, tweener);
-            //availableCams[0] = new LegacyCamera(this, tweener);
 
             _currentCam = availableCams[currentCameraIndex];
         }
@@ -157,7 +145,7 @@ namespace CustomCameraVScript
 
                 if(oldVehHash != NewVehHash)
                 {
-                    UpdateVehicleProperties();
+                    UpdateCameraVehicleProperties();
                 }
 
                 oldVehHash = NewVehHash;
@@ -268,7 +256,7 @@ namespace CustomCameraVScript
             //dbgPanel.watchedVariables.Add("towedVehLong", () => { return towedVehicleLongitude; });
             //dbgPanel.watchedVariables.Add("isIndustrial", () => { return isTowOrTrailerTruck; });
             //dbgPanel.watchedVariables.Add("vehClass", () => { return veh.ClassType; });
-            //dbgPanel.watchedVariables.Add("vehDisplayName", () => { return veh.DisplayName; });
+            dbgPanel.watchedVariables.Add("vehDisplayName", () => { return veh.DisplayName; });
 
             dbgPanel.watchedVariables.Add("vehRotX", () => { return veh.Rotation.X; });
             dbgPanel.watchedVariables.Add("vehRotY", () => { return veh.Rotation.Y; });
@@ -293,15 +281,11 @@ namespace CustomCameraVScript
             return Function.Call<float>(Hash.TIMESTEP);
         }
 
-        private void UpdateVehicleProperties()
+        private void UpdateCameraVehicleProperties()
         {
-            currentVehicleHeight = getVehicleHeight(veh) * 0.8333f;
-            currentVehicleLongitudeOffset = getVehicleLongitudeOffset(veh);
-            isCycleOrByke = veh.ClassType == VehicleClass.Cycles || veh.ClassType == VehicleClass.Motorcycles;
             isSuitableForCam = isVehicleSuitableForCustomCamera(veh);
 
-            isTowOrTrailerTruck = veh.ClassType == VehicleClass.Commercial || veh.HasTowArm || veh.HasBone("attach_female");
-            if(!ReferenceEquals(CurrentCamera, null))
+            if (!ReferenceEquals(CurrentCamera, null))
             {
                 CurrentCamera.UpdateVehicleProperties();
             }
@@ -394,118 +378,6 @@ namespace CustomCameraVScript
             smoothIsRearGear = MathR.Lerp(smoothIsRearGear, veh.CurrentGear == 0 ? 1f : 0f, 1.3f * getDeltaTime());
             //speedCoeff = MathR.Max(veh.Speed, veh.Velocity.Magnitude() * 0.045454f);
             //pointAt = veh.Position + fullHeightOffset + (veh.ForwardVector * computeLookFrontOffset(veh, speedCoeff, smoothIsInAir));
-        }
-
-        private Vehicle GetTrailer(Vehicle veh)
-        {
-            OutputArgument outputArgument = new OutputArgument();
-            if (Function.Call<bool>(Hash.GET_VEHICLE_TRAILER_VEHICLE, veh, outputArgument))
-            {
-                return outputArgument.GetResult<Vehicle>();
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        public void updateTowedVehicleOrTrailerLongitude()
-        {
-            if (!isTowOrTrailerTruck || ReferenceEquals(veh, null))
-            {
-                towedVehicleLongitude = 1f;
-                return;
-            }
-                
-
-            if (!ReferenceEquals(veh.TowedVehicle, null))
-                towedVehicleLongitude = veh.TowedVehicle.Model.GetDimensions().Y + 1.0f;
-
-            if (Function.Call<bool>(Hash.IS_VEHICLE_ATTACHED_TO_TRAILER, veh))
-            {
-                currentTrailer = GetTrailer(veh);
-                towedVehicleLongitude = currentTrailer.Model.GetDimensions().Y + 1.0f;
-            }
-            else
-            {
-                currentTrailer = null;
-            }
-        }
-
-        public float getVehicleHeight(Vehicle veh)
-        {
-            var height = veh.Model.GetDimensions().Z;
-
-            if (Function.Call<bool>(Hash.IS_BIG_VEHICLE, veh.Handle))
-            {
-                height += 0.9f;
-            }
-
-            return height;
-        }
-
-        public float getVehicleLongitudeOffset(Vehicle veh)
-        {
-            var height = getVehicleHeight(veh);
-
-            var distanceAdd = 0f;
-
-            if(height > 1.6f)
-            {
-                distanceAdd = (height - 1.6f);
-            }
-
-            if (veh.HasBone("bumper_r"))
-            {
-                var pos = veh.Position;
-                var rearBumperPos = veh.GetBoneCoord("bumper_r");
-
-                return Vector3.Distance2D(pos, rearBumperPos) + distanceAdd;
-            }
-
-            if (veh.HasBone("spoiler"))
-            {
-                var pos = veh.Position;
-                var spoilerPos = veh.GetBoneCoord("spoiler");
-
-                return Vector3.Distance2D(pos, spoilerPos) + distanceAdd;
-            }
-
-            if (veh.HasBone("neon_b"))
-            {
-                var pos = veh.Position;
-                var rarNeonPos = veh.GetBoneCoord("neon_b");
-
-                return Vector3.Distance2D(pos, rarNeonPos) + 0.1f + distanceAdd;
-            }
-
-            if (veh.HasBone("boot"))
-            {
-                var pos = veh.Position;
-                var bootPos = veh.GetBoneCoord("boot");
-
-                return Vector3.Distance2D(pos, bootPos) + 2.0f + distanceAdd;
-            }
-
-            if (veh.HasBone("windscreen_r"))
-            {
-                var pos = veh.Position;
-                var rearGlassPos = veh.GetBoneCoord("windscreen_r");
-
-                return Vector3.Distance2D(pos, rearGlassPos) + 1.0f + distanceAdd;
-            }
-
-            var longitude =  veh.Model.GetDimensions().Y;
-
-            if (veh.Model.IsBicycle || veh.Model.IsBike)
-            {
-                longitude += 1.4f;
-            } else
-            {
-                longitude += 3.6f;
-            }
-
-            return (longitude * 0.5f) + distanceAdd;
         }
 
 

@@ -5,6 +5,7 @@ using System.Text;
 using GTA;
 using Glide;
 using CustomCameraVScript;
+using GTA.Math;
 
 namespace CustomCameraVScript
 {
@@ -13,6 +14,9 @@ namespace CustomCameraVScript
         public CustomCameraV script = null;
         public Tweener tweener = null;
         public Camera targetCamera = null;
+
+        public float lowUpdateCheckTime = 2f;
+        public Tween lowUpdateTimer = null;
 
         public Vehicle veh
         {
@@ -32,9 +36,23 @@ namespace CustomCameraVScript
 
         public abstract void loadCameraSettings();
 
-        public abstract void setupCamera();
+        public virtual void setupCamera()
+        {
+            lowUpdateTimer = tweener.Timer(lowUpdateCheckTime, lowUpdateCheckTime).Repeat().OnComplete(new Action(onLowUpdateCheck));
+        }
+
+        public virtual void onLowUpdateCheck()
+        {
+
+        }
+
         public abstract void updateCamera();
-        public abstract void haltCamera();
+
+        public virtual void haltCamera()
+        {
+            lowUpdateTimer.Cancel();
+            lowUpdateTimer = null;
+        }
 
         public abstract void dispose();
 

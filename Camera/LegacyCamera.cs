@@ -10,13 +10,12 @@ using CustomCameraVScript;
 
 namespace CustomCameraVScript
 {
-    class LegacyCamera : CustomCamera
+    class LegacyCamera : ThirdPersonCamera
     {
         private Vector3 currentPos;
         private Quaternion currentRotation;
         private float smoothFixedVsVelocity = 0f;
         private float tempSmoothVsVl = 0f;
-        private float lastVelocityMagnitude = 0f;
 
         // How fast lerp between rear and velocity cam position when neccesary
         private float fixedVsVelocitySpeed = 2.5f;
@@ -34,7 +33,6 @@ namespace CustomCameraVScript
         private Transform rearCamCurrentTransform;
 
         public float fov = 75f;
-        public float distanceOffset = 1.4f;
         public float heightOffset = 0.28f;
         public float extraCamHeight = 0.10f;
 
@@ -69,22 +67,10 @@ namespace CustomCameraVScript
 
         public float stoppedSpeed = 0.1f;
 
-        public bool increaseDistanceAtHighSpeed = true;
-        public float maxHighSpeedDistanceIncrement = 1.9f;
-        public float maxHighSpeed = 80f;
-
-        public bool accelerationAffectsCamDistance = true;
-        public float accelerationCamDistanceMultiplier = 2.38f;
-
-        public bool useEasingForCamDistance = true;
-
         public float vehDummyOffset = 0.11f;
         public float vehDummyOffsetHighSpeed = -0.05f;
 
-        public float currentDistanceIncrement = 0f;
-        public float fullLongitudeOffset;
         public float finalDummyOffset = 0f;
-        public Vector3 fullHeightOffset;
 
         public LegacyCamera(CustomCameraV script, Tweener tweener) : base(script, tweener)
         { 
@@ -197,7 +183,7 @@ namespace CustomCameraVScript
             speedCoeff = MathR.Max(veh.Speed, veh.Velocity.Magnitude() * 0.045454f);
             pointAt = veh.Position + fullHeightOffset + (veh.ForwardVector * computeLookFrontOffset(speedCoeff, script.smoothIsInAir));
 
-            fullLongitudeOffset = (distanceOffset + script.currentVehicleLongitudeOffset) /* + vehDummyOffset*/ + script.towedVehicleLongitude;
+            fullLongitudeOffset = (distanceOffset + currentVehicleLongitudeOffset) /* + vehDummyOffset*/ + towedVehicleLongitude;
 
             finalDummyOffset = MathR.Lerp(vehDummyOffset, vehDummyOffsetHighSpeed, speedCoeff / (maxHighSpeed * 1.6f));
 
@@ -249,7 +235,7 @@ namespace CustomCameraVScript
             // Smooth factor between two above cam positions
             smoothFixedVsVelocity = MathR.Lerp(smoothFixedVsVelocity, fixedVsVelocity, (fixedVsVelocitySpeed) * Time.getDeltaTime());
 
-            if (!script.isCycleOrByke)
+            if (!isCycleOrByke)
             {
                 tempSmoothVsVl = MathR.Lerp(tempSmoothVsVl, MathR.Clamp(speedCoeff * 0.4347826f, 0.025f, 1f), (fixedVsVelocitySpeed * 0.05f));
                 smoothFixedVsVelocity = MathR.Lerp(0f, smoothFixedVsVelocity, tempSmoothVsVl);
@@ -291,16 +277,6 @@ namespace CustomCameraVScript
             return transform;
         }
 
-        private float getVehicleAcceleration()
-        {
-            var mag = smoothVelocity.Magnitude();
-            var ret = (mag - lastVelocityMagnitude) * Time.getDeltaTime();
-
-            lastVelocityMagnitude = mag;
-
-            return ret;
-        }
-
         private float computeLookFrontOffset(float speedCoeff, float smoothIsInAir)
         {
             var speed = speedCoeff;
@@ -325,7 +301,7 @@ namespace CustomCameraVScript
             else
             {
                 // for bikes, always look at velocity
-                if (script.isCycleOrByke)
+                if (isCycleOrByke)
                 {
                     return 1f;
                 }
@@ -351,15 +327,15 @@ namespace CustomCameraVScript
             smoothVelocitySmDamp = Vector3.Zero;
             tempSmoothVsVl = 0.025f;
 
-            currentPos = veh.Position - (Vector3.WorldUp * (heightOffset + script.currentVehicleHeight));
-            wantedPosVelocity = veh.Position - (Vector3.WorldUp * (heightOffset + script.currentVehicleHeight));
+            currentPos = veh.Position - (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
+            wantedPosVelocity = veh.Position - (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
             currentRotation = veh.Quaternion;
         }
 
         public override void UpdateVehicleProperties()
         {
             base.UpdateVehicleProperties();
-            fullHeightOffset = (Vector3.WorldUp * (heightOffset + script.currentVehicleHeight));
+            fullHeightOffset = (Vector3.WorldUp * (heightOffset + currentVehicleHeight));
         }
 
         //private void endFreeLookingSmooth()

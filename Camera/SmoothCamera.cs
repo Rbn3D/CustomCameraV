@@ -10,7 +10,7 @@ using GTA.Math;
 
 namespace CustomCameraVScript
 {
-    class SmoothCamera : CustomCamera
+    class SmoothCamera : ThirdPersonCamera
     {
         public Quaternion smoothQuat = Quaternion.Identity;
 
@@ -46,11 +46,15 @@ namespace CustomCameraVScript
         // player in vehicle and using this cam (initialize)
         public override void setupCamera()
         {
+            base.setupCamera();
+
             smoothQuat = veh.Quaternion;
     }
 
         public override void updateCamera()
         {
+            updateCameraCommon();
+
             var heightOffsetV3 = Vector3.WorldUp * heightOffset;
             var camExtraHeightV3 = Vector3.WorldUp * extraCamHeight;
 
@@ -83,9 +87,28 @@ namespace CustomCameraVScript
             targetCamera.PointAt(posCenter);
         }
 
+        public void updateCameraCommon()
+        {
+            fullLongitudeOffset = (distanceOffset + currentVehicleLongitudeOffset) /* + vehDummyOffset*/ + towedVehicleLongitude;
+
+            currentDistanceIncrement = 0f;
+
+            if (increaseDistanceAtHighSpeed)
+            {
+                var factor = veh.Speed / maxHighSpeed;
+                currentDistanceIncrement = MathR.Lerp(0f, maxHighSpeedDistanceIncrement, Easing.EaseOut(factor, useEasingForCamDistance ? EasingType.Cubic : EasingType.Linear));
+            }
+
+            if (accelerationAffectsCamDistance)
+            {
+                var factor = getVehicleAcceleration() / (maxHighSpeed * 10f);
+                currentDistanceIncrement += MathR.Lerp(0f, accelerationCamDistanceMultiplier, Easing.EaseOut(factor, useEasingForCamDistance ? EasingType.Quadratic : EasingType.Linear));
+            }
+        }
+
         public override void haltCamera()
         {
-            // player switched to another camera, so stop tweens, timers and other stuff about this camera
+            base.haltCamera();
         }
 
         public override void dispose()
