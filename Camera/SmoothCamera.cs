@@ -25,6 +25,8 @@ namespace CustomCameraVScript
         public float maxRotSpeedAngle = 90f;
         public float currentRootSpeed = 2f;
         private Quaternion velQuat = Quaternion.Identity;
+        private Quaternion smoothVelQuat = Quaternion.Identity;
+        private Quaternion finalQuat;
 
         public SmoothCamera(CustomCameraV script, Tweener tweener) : base(script, tweener)
         {
@@ -34,7 +36,7 @@ namespace CustomCameraVScript
 
         public override string getCameraName()
         {
-            return "Smooth";
+            return "Smooth (Third person)";
         }
 
         public override void loadCameraSettings()
@@ -70,23 +72,27 @@ namespace CustomCameraVScript
             //smoothQuat = MathR.QuatNlerp(smoothQuat, veh.Quaternion, MathR.Clamp01(rotationSpeed * Time.getDeltaTime()));
             smoothQuat = Quaternion.SlerpUnclamped(smoothQuat, veh.Quaternion, rotationSpeed * Time.getDeltaTime());
 
-            if (veh.Speed > 0.05f)
+            if (veh.Speed > 0.15f)
             {
-                //velQuat = MathR.QuaternionLookRotation(veh.Velocity);
+                //velQuat = MathR.LookRotation(veh.Velocity, Vector3.WorldUp);
                 velQuat = MathR.LookAt(Vector3.Zero, smoothVelocity);
             }
+            smoothVelQuat = Quaternion.Lerp(smoothVelQuat, velQuat, 2f * Time.getDeltaTime());
 
-            var finalQuat = Quaternion.Lerp(smoothQuat, velQuat, script.smoothIsInAir);
+            finalQuat = Quaternion.Lerp(smoothQuat, velQuat, script.smoothIsInAir);
 
             float finalDistMult = 1f;
-            //if(veh.Speed > 0.01f) // commented out until velQuat (velocity quaternion) gets fixed, it rarely causes wrong rotations
-            //{
-            //    // TODO Optimize?
-            //    finalDistMult = Quaternion.AngleBetween(finalQuat, velQuat) / 180f;
-            //    finalDistMult = MathR.Lerp(1f, -1f, finalDistMult);
-            //    //finalDistMult = MathR.Lerp(1f, finalDistMult, veh.Speed * 0.2f);
-            //    //finalDistMult = MathR.Lerp(finalDistMult, 1f, script.smoothIsInAir);
-            //}
+            if (veh.Speed > 0.15f)
+            {
+                // TODO Optimize?
+                finalDistMult = Vector3.Angle(finalQuat * Vector3.RelativeFront, veh.Velocity) / 180f;
+                finalDistMult = MathR.Lerp(1f, -1f, finalDistMult);
+            }
+
+            if(script.isMouseLooking)
+            {
+                finalQuat = Quaternion.Lerp(finalQuat, getFreelookQuaternion(), script.smoothIsFreeLooking);
+            }
 
             targetCamera.Position = posCenter + camExtraHeightV3 + (finalQuat * Vector3.RelativeBack * (fullLongitudeOffset + ( currentDistanceIncrement * finalDistMult )));
 
@@ -133,6 +139,17 @@ namespace CustomCameraVScript
         public float AngleInDeg(Vector3 vec1, Vector3 vec2)
         {
             return AngleInRad(vec1, vec2) * 180 / MathR.PI;
+        }
+
+        public override Dictionary<string, DebugPanel.watchDelegate> getDebugVars()
+        {
+            var vars = new Dictionary<string, DebugPanel.watchDelegate>();
+
+            vars.Add("angleBetween", () => { return Quaternion.AngleBetween(finalQuat, smoothVelQuat); });
+            vars.Add("V3AngleBetween", () => { return Vector3.Angle(finalQuat * Vector3.RelativeFront, veh.Velocity); });
+            vars.Add("dot", () => { return Quaternion.Dot(finalQuat, smoothVelQuat); });
+
+            return vars;
         }
     }
 }

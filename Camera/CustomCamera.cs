@@ -4,8 +4,8 @@ using System.Linq;
 using System.Text;
 using GTA;
 using Glide;
-using CustomCameraVScript;
 using GTA.Math;
+using CustomCameraVScript;
 
 namespace CustomCameraVScript
 {
@@ -39,6 +39,8 @@ namespace CustomCameraVScript
         public virtual void setupCamera()
         {
             lowUpdateTimer = tweener.Timer(lowUpdateCheckTime, lowUpdateCheckTime).Repeat().OnComplete(new Action(onLowUpdateCheck));
+
+            setupDebugVars();
         }
 
         public virtual void onLowUpdateCheck()
@@ -52,13 +54,42 @@ namespace CustomCameraVScript
         {
             lowUpdateTimer.Cancel();
             lowUpdateTimer = null;
+
+            removeDebugVars();
         }
+
+
 
         public abstract void dispose();
 
         public virtual void UpdateVehicleProperties()
         {
             
+        }
+
+        public virtual Dictionary<string, DebugPanel.watchDelegate> getDebugVars()
+        {
+            return new Dictionary<string, DebugPanel.watchDelegate>();
+        }
+
+        private void setupDebugVars()
+        {
+            script.dbgPanel.AddRange(getDebugVars());
+        }
+
+        private void removeDebugVars()
+        {
+            script.dbgPanel.RemoveRange(getDebugVars());
+        }
+
+        public Quaternion getFreelookQuaternion()
+        {
+            return MathR.LookAt(Vector3.Zero, GameplayCamera.Direction);
+        }
+
+        public Vector3 getFreelookDirectionVector()
+        {
+            return GameplayCamera.Direction;
         }
     }
 }

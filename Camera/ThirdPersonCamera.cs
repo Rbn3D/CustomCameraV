@@ -46,6 +46,11 @@ namespace CustomCameraVScript
         {
         }
 
+        public override void setupCamera()
+        {
+            base.setupCamera();
+        }
+
         public override void onLowUpdateCheck()
         {
             base.onLowUpdateCheck();
@@ -147,7 +152,7 @@ namespace CustomCameraVScript
 
         public override void updateCamera()
         {
-            smoothVelocity = Vector3.Lerp(smoothVelocity, veh.Velocity, 20f * Time.getDeltaTime());
+            smoothVelocity = Vector3.Lerp(smoothVelocity, veh.Velocity, 10f * Time.getDeltaTime());
         }
 
         public void updateTowedVehicleOrTrailerLongitude()

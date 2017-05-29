@@ -73,7 +73,7 @@ namespace CustomCameraVScript
 
         public override string getCameraName()
         {
-            return "Default";
+            return "Legacy (Third person)";
         }
 
         public override void loadCameraSettings()
@@ -91,44 +91,11 @@ namespace CustomCameraVScript
         {
             base.updateCamera();
 
-            Transform rearCameraTransform;
-            Transform cameraMouseLooking;
-
             updateCameraCommon();
 
-            //bool isRearCameraOnly = script.smoothIsMouseLooking < 0.005f;
-            //bool isMouseCameraOnly = script.smoothIsMouseLooking > 0.995f;
+            Transform rearCameraTransform = UpdateCameraRear();
 
-            // @TODO Fix
-
-            bool isRearCameraOnly = true;
-            bool isMouseCameraOnly = false;
-
-            if (isRearCameraOnly)
-            {
-                rearCameraTransform = UpdateCameraRear();
-
-                targetCamera.Position = rearCameraTransform.position;
-                targetCamera.Rotation = rearCameraTransform.rotation;
-            }
-            else if (isMouseCameraOnly)
-            {
-                cameraMouseLooking = UpdateCameraMouse();
-
-                targetCamera.Position = cameraMouseLooking.position;
-                //mainCamera.Rotation = cameraMouseLooking.rotation;
-
-                // ugly fix, but works (still some stuttering while mouse looking)
-                targetCamera.PointAt(pointAt);
-            }
-            else
-            {
-                rearCameraTransform = UpdateCameraRear();
-                cameraMouseLooking = UpdateCameraMouse();
-
-                targetCamera.Position = Vector3.Lerp(rearCameraTransform.position, cameraMouseLooking.position, MathR.Clamp01(script.smoothIsMouseLooking));
-                targetCamera.Rotation = MathR.EulerNlerp(rearCameraTransform.quaternion, cameraMouseLooking.quaternion, script.smoothIsMouseLooking).ToEulerAngles();
-            }
+            targetCamera.Position = rearCameraTransform.position;
         }
 
         public override void haltCamera()
@@ -254,9 +221,14 @@ namespace CustomCameraVScript
             Transform fixedDistanceTr = new Transform(currentPos + fullHeightOffset + (Vector3.WorldUp * extraCamHeight), Quaternion.Identity);
             fixedDistanceTr.PointAt(pointAt);
 
-            Quaternion rotInitial = fixedDistanceTr.quaternion;
+            Quaternion finalQuat = fixedDistanceTr.quaternion;
 
-            fixedDistanceTr.position = veh.Position + fullHeightOffset + (Vector3.WorldUp * extraCamHeight) + (rotInitial * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
+            if (script.isMouseLooking)
+            {
+                finalQuat = Quaternion.Lerp(finalQuat, getFreelookQuaternion(), script.smoothIsFreeLooking);
+            }
+
+            fixedDistanceTr.position = veh.Position + fullHeightOffset + (Vector3.WorldUp * extraCamHeight) + (finalQuat * Vector3.RelativeBack * (fullLongitudeOffset + currentDistanceIncrement));
 
             //fixedDistanceTr.position = fixedDistanceTr.position + fullHeightOffset;
 
@@ -330,6 +302,13 @@ namespace CustomCameraVScript
         public override void UpdateVehicleProperties()
         {
             base.UpdateVehicleProperties();
+        }
+
+        public override Dictionary<string, DebugPanel.watchDelegate> getDebugVars()
+        {
+            var vars = new Dictionary<string, DebugPanel.watchDelegate>();
+
+            return vars;
         }
 
         //private void endFreeLookingSmooth()

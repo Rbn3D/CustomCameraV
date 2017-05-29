@@ -28,7 +28,7 @@ namespace CustomCameraVScript
         public bool isMouseMoving = false;
         public bool isMouseLooking;
         public Tween mouseLookTimer;
-        public float smoothIsMouseLooking = 0f;
+        public float smoothIsFreeLooking = 0f;
 
         public DebugPanel dbgPanel;
         public Tweener tweener = new Tweener();
@@ -87,10 +87,11 @@ namespace CustomCameraVScript
 
             this.LoadSettings();
 
-            availableCams = new CustomCamera[2];
+            availableCams = new CustomCamera[3];
 
-            availableCams[0] = new LegacyCamera(this, tweener);
-            availableCams[1] = new SmoothCamera(this, tweener);
+            availableCams[0] = new SmoothCamera(this, tweener);
+            availableCams[1] = new LegacyCamera(this, tweener);          
+            availableCams[2] = new DriverSeatCamera(this, tweener);
 
             _currentCam = availableCams[currentCameraIndex];
         }
@@ -135,8 +136,14 @@ namespace CustomCameraVScript
             }
 
             var player = Game.Player.Character;
-            if (player.IsInVehicle() && customCamEnabled && !Game.Player.IsAiming && !Game.IsControlPressed(2, GTA.Control.VehicleLookBehind))
+
+            if (player.IsInVehicle() && customCamEnabled)
             {
+                Game.DisableControlThisFrame(2, GTA.Control.NextCamera);
+            }
+
+            if (player.IsInVehicle() && customCamEnabled && !Game.Player.IsAiming && !Game.IsControlPressed(2, GTA.Control.VehicleLookBehind))
+            {            
                 veh = player.CurrentVehicle;
                 var NewVehHash = veh.GetHashCode();
 
@@ -156,12 +163,10 @@ namespace CustomCameraVScript
 
                     if (!camSet)
                     {
-                        // Just entered on vehicle
-                        Function.Call(Hash.SET_FOLLOW_VEHICLE_CAM_VIEW_MODE, 0);
-
+                        setupDebugStats(veh);
+                        Function.Call(Hash.SET_FOLLOW_VEHICLE_CAM_VIEW_MODE, 1);
                         SetupCameras(player, veh);
                         SetupCurrentCamera();
-                        setupDebugStats(veh);
 
                         if (firstVeh && notifyModEnabled)
                         {
@@ -236,24 +241,9 @@ namespace CustomCameraVScript
             //dbgPanel.watchedVariables.Add("Longitude", () => { return currentVehicleLongitudeOffset; });
             //dbgPanel.watchedVariables.Add("MouseX", () => { return InputR.MouseX; });
             //dbgPanel.watchedVariables.Add("MouseY", () => { return InputR.MouseY; });
-            //dbgPanel.watchedVariables.Add("MouseMoving", () => { return isMouseMoving; });
-            //dbgPanel.watchedVariables.Add("MouseLooking", () => { return isMouseLooking; });
-            dbgPanel.watchedVariables.Add("MouseLookingSmooth", () => { return smoothIsMouseLooking; });
-            //dbgPanel.watchedVariables.Add("generalMovementSpeed", () => { return generalMovementSpeed; });
-            //dbgPanel.watchedVariables.Add("Delta (custom impl)", () => { return getDeltaTime(); });
-            //dbgPanel.watchedVariables.Add("TIMESTEP", () => { return Function.Call<float>(Hash.TIMESTEP); });
-            //dbgPanel.watchedVariables.Add("Interval", () => { return Interval; });
-            //dbgPanel.watchedVariables.Add("veh.Position", () => { return veh.Position; });
-            //dbgPanel.watchedVariables.Add("veh.Speed / maxHighSpeed", () => { return veh.Speed / maxHighSpeed; });
-            //dbgPanel.watchedVariables.Add("isMouseCameraOnly", () => { return isMouseCameraOnly; });
-            //dbgPanel.watchedVariables.Add("isRearCameraOnly", () => { return isRearCameraOnly; });
-            //dbgPanel.watchedVariables.Add("veh.Rotation", () => { return veh.Rotation; });
-            //dbgPanel.watchedVariables.Add("alignFactor", () => { return alignmentSpeed * (1 - smoothIsInAir) * (1 - smoothIsRearGear); });
-            //dbgPanel.watchedVariables.Add("vehHeight", () => { return veh.Model.GetDimensions().Z; });
-            //dbgPanel.watchedVariables.Add("vehHeightFn", () => { return getVehicleHeight(veh); });
-            //dbgPanel.watchedVariables.Add("towedVehLong", () => { return towedVehicleLongitude; });
-            //dbgPanel.watchedVariables.Add("isIndustrial", () => { return isTowOrTrailerTruck; });
-            //dbgPanel.watchedVariables.Add("vehClass", () => { return veh.ClassType; });
+            dbgPanel.watchedVariables.Add("MouseMoving", () => { return isMouseMoving; });
+            dbgPanel.watchedVariables.Add("MouseLooking", () => { return isMouseLooking; });
+            dbgPanel.watchedVariables.Add("MouseLookingSmooth", () => { return smoothIsFreeLooking; });
             dbgPanel.watchedVariables.Add("vehDisplayName", () => { return veh.DisplayName; });
 
             dbgPanel.watchedVariables.Add("vehRotX", () => { return veh.Rotation.X; });
@@ -312,8 +302,8 @@ namespace CustomCameraVScript
                 isMouseMoving = true;
                 isMouseLooking = true;
 
-                //tweener.Tween<CustomCameraV>(this, new { smoothIsMouseLooking = 1f }, 0.01f, 0f).Ease(Ease.SineInOut);
-                smoothIsMouseLooking = 1f;
+                //tweener.Tween<CustomCameraV>(this, new { smoothIsFreeLooking = 1f }, 0.01f, 0f).Ease(Ease.SineInOut);
+                smoothIsFreeLooking = 1f;
 
                 if (mouseLookTimer != null)
                 {
@@ -332,22 +322,21 @@ namespace CustomCameraVScript
             //    isMouseLooking = false;
             //    mouseLookTimer.Cancel();
             //    mouseLookTimer = null;
-            //    tweener.Tween<CustomCameraV>(this, new { smoothIsMouseLooking = 0f }, 0.25f, 0f).Ease(Ease.SineInOut);
+            //    tweener.Tween<CustomCameraV>(this, new { smoothIsFreeLooking = 0f }, 0.25f, 0f).Ease(Ease.SineInOut);
             //}
 
-            if (!isMouseLooking && smoothIsMouseLooking <= 0.000001f)
+            if (!isMouseLooking)
             {
-                // When we are not looking around with mouse, sync gamplaycam heading with mod camera, so radar always is shown in the right rotation
+                // When we are not looking around with mouse, sync gamplaycam heading with mod camera, so radar always shows the right rotation
                 GameplayCamera.RelativeHeading = gameCamera.Rotation.Z - veh.Rotation.Z;
             }
         }
 
         private void endFreeLookingSmooth()
         {
-            isMouseLooking = false;
-            mouseLookTimer.Cancel();
+            //mouseLookTimer.Cancel();
             mouseLookTimer = null;
-            tweener.Tween<CustomCameraV>(this, new { smoothIsMouseLooking = 0f }, 0.25f, 0f).Ease(Ease.SineInOut);
+            tweener.Tween<CustomCameraV>(this, new { smoothIsFreeLooking = 0f }, 0.25f, 0f).Ease(Ease.SineInOut).OnComplete(() => { isMouseLooking = false; });
         }
 
 
@@ -372,7 +361,7 @@ namespace CustomCameraVScript
 
         private void updateCameraCommon()
         {
-            smoothIsInAir = MathR.Lerp(smoothIsInAir, veh.IsInAir ? 1f : 0f, 2f * getDeltaTime());
+            smoothIsInAir = MathR.Lerp(smoothIsInAir, veh.IsInAir || veh.IsUpsideDown ? 1f : 0f, 2f * getDeltaTime());
             smoothIsRearGear = MathR.Lerp(smoothIsRearGear, veh.CurrentGear == 0 ? 1f : 0f, 1.3f * getDeltaTime());
             //speedCoeff = MathR.Max(veh.Speed, veh.Velocity.Magnitude() * 0.045454f);
             //pointAt = veh.Position + fullHeightOffset + (veh.ForwardVector * computeLookFrontOffset(veh, speedCoeff, smoothIsInAir));
@@ -399,8 +388,10 @@ namespace CustomCameraVScript
 
         private void ExitCustomCameraView()
         {
-            veh = null;
+            if (!ReferenceEquals(_currentCam, null))
+                CurrentCamera.haltCamera();
 
+            veh = null;
             World.RenderingCamera = null;
             camSet = false;
         }

@@ -121,24 +121,18 @@ namespace CustomCameraVScript
         // This method can be BUGGY !
         public static Quaternion LookRotation(Vector3 forward, Vector3 up)
         {
-            //forward = -new Vector3(forward.X, forward.Z, forward.Y);
-            //forward.Z = -forward.Z;
-            //up.Z = -up.Z;
-
-            //forward.Normalize();
-
-            Vector3 vector = Vector3.Normalize(forward);
-            Vector3 vector2 = Vector3.Normalize(Vector3.Cross(up, vector));
-            Vector3 vector3 = Vector3.Cross(vector, vector2);
-            var m00 = vector2.X;
-            var m01 = vector2.Y;
-            var m02 = vector2.Z;
-            var m10 = vector3.X;
-            var m11 = vector3.Y;
-            var m12 = vector3.Z;
-            var m20 = vector.X;
-            var m21 = vector.Y;
-            var m22 = vector.Z;
+            forward = Vector3.Normalize(forward);
+            Vector3 right = Vector3.Normalize(Vector3.Cross(up, forward));
+            up = Vector3.Cross(forward, right);
+            var m00 = right.X;
+            var m01 = right.Y;
+            var m02 = right.Z;
+            var m10 = up.X;
+            var m11 = up.Y;
+            var m12 = up.Z;
+            var m20 = forward.X;
+            var m21 = forward.Y;
+            var m22 = forward.Z;
 
 
             float num8 = (m00 + m11) + m22;
@@ -179,6 +173,7 @@ namespace CustomCameraVScript
             quaternion.Y = (m21 + m12) * num2;
             quaternion.Z = 0.5f * num5;
             quaternion.W = (m01 - m10) * num2;
+
             return quaternion;
         }
 
