@@ -7,26 +7,29 @@ using CustomCameraVScript;
 using Glide;
 using GTA;
 using GTA.Math;
+using GTA.Native;
 
 namespace CustomCameraVScript
 {
     class SmoothCamera : ThirdPersonCamera
     {
-        public Quaternion smoothQuat = Quaternion.Identity;
-
-        //public float camDistance = 5.8f;
         public float rotationSpeed = 4.75f;
 
         public bool useVariableRotSpeed = true;
-
         public float minRotSpeed = 2f;
         public float maxRotSpeed = 5f;
-
         public float maxRotSpeedAngle = 90f;
-        public float currentRootSpeed = 2f;
-        private Quaternion velQuat = Quaternion.Identity;
+
+        public bool avoidCameraBouncinessCar = true;
+
+        private float currentRootSpeed = 2f;
+        private Quaternion velocityQuat = Quaternion.Identity;
         private Quaternion smoothVelQuat = Quaternion.Identity;
         private Quaternion finalQuat;
+        private float surfaceNormalDistance;
+        private Vector3 cachedRaycastDir;
+        private int frameCounter = 0;
+        private Quaternion smoothQuat = Quaternion.Identity;
 
         public SmoothCamera(CustomCameraV script, Tweener tweener) : base(script, tweener)
         {
@@ -50,6 +53,7 @@ namespace CustomCameraVScript
             base.setupCamera();
 
             smoothQuat = veh.Quaternion;
+            cachedRaycastDir = veh.ForwardVector;
     }
 
         public override void updateCamera()
@@ -69,17 +73,45 @@ namespace CustomCameraVScript
                 currentRootSpeed = MathR.Lerp(currentRootSpeed, desiredRootSpeed, 2f * Time.getDeltaTime());
             }
 
-            //smoothQuat = MathR.QuatNlerp(smoothQuat, veh.Quaternion, MathR.Clamp01(rotationSpeed * Time.getDeltaTime()));
-            smoothQuat = Quaternion.SlerpUnclamped(smoothQuat, veh.Quaternion, rotationSpeed * Time.getDeltaTime());
-
-            if (veh.Speed > 0.15f)
+            if (veh.Speed > 1f)
             {
                 //velQuat = MathR.LookRotation(veh.Velocity, Vector3.WorldUp);
-                velQuat = MathR.LookAt(Vector3.Zero, smoothVelocity);
+                velocityQuat = MathR.XLookRotation(smoothVelocity);
             }
-            smoothVelQuat = Quaternion.Lerp(smoothVelQuat, velQuat, 2f * Time.getDeltaTime());
 
-            finalQuat = Quaternion.Lerp(smoothQuat, velQuat, script.smoothIsInAir);
+            Quaternion vehQuat;
+
+            if(isCycleOrByke)
+            {
+                // Bykes / cycles (avoid unwanted cam rotations during wheelies/stoppies)
+                if (veh.Speed < 3f)
+                {
+                    if(veh.IsOnAllWheels)
+                        vehQuat = getRotationFromAverageWheelPosBike();
+                    else
+                        vehQuat = getSurfaceNormalRotation(); // Possibly unperformant (using it only for wheelie/stoppie al low speeds)
+                }
+                else
+                    vehQuat = velocityQuat;
+            }
+            else // cars
+            {
+                if(avoidCameraBouncinessCar && veh.IsOnAllWheels)
+                {
+                    vehQuat = getRotationFromAverageWheelPosCar(); // Avoid camera movements caused by car suspension movement (wheels are on the floor)
+                }
+                else
+                {
+                    vehQuat = veh.Quaternion;
+                }    
+            }
+
+            //smoothQuat = MathR.QuatNlerp(smoothQuat, veh.Quaternion, MathR.Clamp01(rotationSpeed * Time.getDeltaTime()));
+            smoothQuat = Quaternion.SlerpUnclamped(smoothQuat, vehQuat, rotationSpeed * Time.getDeltaTime());
+
+            smoothVelQuat = Quaternion.Lerp(smoothVelQuat, velocityQuat, 2f * Time.getDeltaTime());
+
+            finalQuat = Quaternion.Lerp(smoothQuat, velocityQuat, script.smoothIsInAir);
 
             float finalDistMult = 1f;
             if (veh.Speed > 0.15f)
@@ -99,6 +131,69 @@ namespace CustomCameraVScript
             var pointAt = posCenter - finalQuat * Vector3.RelativeBack * (currentDistanceIncrement + 2f);
 
             targetCamera.PointAt(pointAt);
+        }
+
+        private Quaternion getRotationFromAverageWheelPosBike()
+        {
+            // Front
+            var fPos = veh.GetBoneCoord("wheel_lf");
+
+            // Rear
+            var rPos = veh.GetBoneCoord("wheel_lr");
+
+            var dir = fPos - rPos;
+
+            return MathR.XLookRotation(dir);
+        }
+
+        private Quaternion getRotationFromAverageWheelPosCar()
+        {
+            // Front Left
+            var flPos = veh.GetBoneCoord("wheel_lf");
+
+            // Front Right
+            var frPos = veh.GetBoneCoord("wheel_rf");
+
+            var frontAverage = (flPos + frPos) * 0.5f;
+
+            // Rear Left
+            var rlPos = veh.GetBoneCoord("wheel_lr");
+
+            // Rear Right
+            var rrPos = veh.GetBoneCoord("wheel_rr");
+
+            var rearAverage = (rlPos + rrPos) * 0.5f;
+
+            var dir = frontAverage - rearAverage;
+
+            return MathR.XLookRotation(dir);
+        }
+
+        public override void UpdateVehicleProperties()
+        {
+            base.UpdateVehicleProperties();
+
+            surfaceNormalDistance = (veh.Model.GetDimensions().Y * 0.5f) - 0.12f;
+        }
+
+        private Quaternion getSurfaceNormalRotation()
+        {
+            frameCounter++;
+            bool proccess = frameCounter % 3 == 0; // Only proccess every 3 frames (Raycast seems to be slow on SHVDN)
+            frameCounter = frameCounter % 9;
+
+            if(proccess)
+            {
+                var raycast = World.Raycast(veh.Position, Vector3.WorldDown, 2f, IntersectOptions.Map, veh);
+
+                if (raycast.DitHitAnything)
+                {
+                    cachedRaycastDir = MathR.OrthoNormalize(raycast.SurfaceNormal, veh.ForwardVector);
+                    //cachedRaycastDir = Vector3.Cross(raycast.SurfaceNormal, veh.RightVector).Normalized;
+                }
+            }
+
+            return MathR.XLookRotation(cachedRaycastDir);
         }
 
         public void updateCameraCommon()
@@ -148,6 +243,9 @@ namespace CustomCameraVScript
             vars.Add("angleBetween", () => { return Quaternion.AngleBetween(finalQuat, smoothVelQuat); });
             vars.Add("V3AngleBetween", () => { return Vector3.Angle(finalQuat * Vector3.RelativeFront, veh.Velocity); });
             vars.Add("dot", () => { return Quaternion.Dot(finalQuat, smoothVelQuat); });
+            vars.Add("veh.HeightAboveGround", () => { return veh.HeightAboveGround; });
+            vars.Add("CamFarClip", () => { return targetCamera.FarClip; });
+            vars.Add("CamNearClip", () => { return targetCamera.NearClip; });
 
             return vars;
         }

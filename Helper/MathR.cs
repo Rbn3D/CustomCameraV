@@ -6,7 +6,17 @@ namespace CustomCameraVScript
 {
     public static class MathR
     {
-        public const float PI = 3.141593f;
+        public const float PI = 3.1415926535897932f;
+
+        public static float Sqrt(float f)
+        {
+            return (float)Math.Sqrt((double)f);
+        }
+
+        public static float Sign(float f)
+        {
+            return (double)f >= 0.0 ? 1f : -1f;
+        }
 
         public static float Atan2(float f, float t)
         {
@@ -119,7 +129,7 @@ namespace CustomCameraVScript
         }
 
         // This method can be BUGGY !
-        public static Quaternion LookRotation(Vector3 forward, Vector3 up)
+        private static Quaternion LookRotationInternalY(Vector3 forward, Vector3 up)
         {
             forward = Vector3.Normalize(forward);
             Vector3 right = Vector3.Normalize(Vector3.Cross(up, forward));
@@ -356,11 +366,11 @@ namespace CustomCameraVScript
 
             float dot = Vector3.Dot(Vector3.RelativeFront, forwardVector);
 
-            if (Math.Abs(dot - (-1.0f)) < 0.000001f)
+            if (Math.Abs(dot - (-1.0f)) < float.Epsilon)
             {
                 return new Quaternion(Vector3.WorldUp.X, Vector3.WorldUp.Y, Vector3.WorldUp.Z, 3.1415926535897932f);
             }
-            if (Math.Abs(dot - (1.0f)) < 0.000001f)
+            if (Math.Abs(dot - (1.0f)) < float.Epsilon)
             {
                 return Quaternion.Identity;
             }
@@ -381,6 +391,85 @@ namespace CustomCameraVScript
             q.Z = axis.Z * s;
             q.W = (float)System.Math.Cos(halfAngle);
             return q;
+        }
+
+        public static Vector3 OrthoNormalize(Vector3 normal, Vector3 tangent)
+        {
+            normal = normal.Normalized;
+
+            Vector3 proj = normal * Vector3.Dot(tangent, normal);
+            tangent = Vector3.Subtract(tangent, proj);
+
+            return tangent.Normalized;
+        }
+
+        public static Matrix Matrix4LookAt(Vector3 eye, Vector3 target, Vector3 up)
+        {
+            Vector3 z = Vector3.Normalize(eye - target);
+            Vector3 x = Vector3.Normalize(Vector3.Cross(up, z));
+            Vector3 y = Vector3.Normalize(Vector3.Cross(z, x));
+
+            Matrix rot = new Matrix();
+
+            rot.M11 = x.X;
+            rot.M12 = y.X;
+            rot.M13 = z.X;
+            rot.M14 = 0.0f;
+
+            rot.M21 = x.Y;
+            rot.M22 = y.Y;
+            rot.M23 = z.Y;
+            rot.M24 = 0.0f;
+
+            rot.M31 = x.Z;
+            rot.M32 = y.Z;
+            rot.M33 = z.Z;
+            rot.M34 = 0.0f;
+
+            rot.M41 = 0.0f;
+            rot.M42 = 0.0f;
+            rot.M43 = 0.0f;
+            rot.M44 = 1.0f;
+
+            Matrix trans = Matrix.Translation(-eye);
+
+            return trans * rot;
+        }
+
+        public static Matrix Matrix4LookAt(Vector3 eye, Vector3 target)
+        {
+            Vector3 up = Vector3.WorldUp;
+
+            return Matrix4LookAt(eye, target, up);
+        }
+
+        public static Quaternion QuaternionFromMatrix(Matrix m)
+        {
+            // Adapted from: http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/index.htm
+            Quaternion q = new Quaternion();
+            q.W = MathR.Sqrt(MathR.Max(0, 1 + m[0, 0] + m[1, 1] + m[2, 2])) / 2;
+            q.X = MathR.Sqrt(MathR.Max(0, 1 + m[0, 0] - m[1, 1] - m[2, 2])) / 2;
+            q.Y = MathR.Sqrt(MathR.Max(0, 1 - m[0, 0] + m[1, 1] - m[2, 2])) / 2;
+            q.Z = MathR.Sqrt(MathR.Max(0, 1 - m[0, 0] - m[1, 1] + m[2, 2])) / 2;
+            q.X *= MathR.Sign(q.X * (m[2, 1] - m[1, 2]));
+            q.Y *= MathR.Sign(q.Y * (m[0, 2] - m[2, 0]));
+            q.Z *= MathR.Sign(q.Z * (m[1, 0] - m[0, 1]));
+            return q;
+        }
+
+        public static Quaternion XLookRotation(Vector3 direction, Vector3 up)
+        {
+            Quaternion rightToForward = Quaternion.Euler(0f, 90f, 0f);
+            Quaternion forwardToTarget = MathR.LookRotationInternalY(direction, up);
+
+            return forwardToTarget * rightToForward;
+        }
+
+        public static Quaternion XLookRotation(Vector3 direction)
+        {
+            var up = Vector3.WorldUp;
+
+            return XLookRotation(direction, up);
         }
     }
 }

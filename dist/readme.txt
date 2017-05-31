@@ -1,13 +1,15 @@
-Custom Camera V (v0.9.7) by Rbn3D
+Custom Camera V (v0.9.8) by Rbn3D
 
 A custom vehicle camera system for Grand Theft Auto V
 
 Changelog:
 -----
 v0.9.8
-Big internal code refactor
-Support for multiple cameras (switchables with a hotkey)
-Camera modes are Default(legacy), Racing, Drifting.
+- Support for multiple cameras! (switchables with a hotkey). Just press game "Next view" button ("V" by default)
+- Camera modes are Smooth (thrid person), Legacy (third person), Driver seat (first person).
+- Settings refactor (do not try to mix v0.9.7 settings file with this, they are completely different)
+- Cameras you don't want can be disabled in settings
+- Big internal code refactor
 -----
 v0.9.7
 -Various performance optimizations

@@ -79,7 +79,7 @@ namespace Glide
 	        /// <returns>The tween created, for setting properties on.</returns>
 	        public Tween Tween<T>(T target, object values, float duration, float delay = 0, bool overwrite = true) where T : class
 	        {
-	        	if (target == null)
+	        	if (ReferenceEquals(target, null))
 	        		throw new ArgumentNullException("target");
 	        	
 	        	//	Prevent tweening on structs if you cheat by casting target as Object
@@ -90,7 +90,7 @@ namespace Glide
 	            var tween = new Tween(target, duration, delay, this);
 	            toAdd.Add(tween);
 	
-	            if (values == null) // valid in case of manual timer
+	            if (ReferenceEquals(values, null)) // valid in case of manual timer
 	                return tween;
 	            
 	            var props = values.GetType().GetProperties();
@@ -214,7 +214,7 @@ namespace Glide
 	            {
 	            	var tween = toAdd[i];
 	                allTweens.Add(tween);
-	            	if (tween.Target == null) continue;	//	don't sort timers by target
+	            	if (ReferenceEquals(tween.Target, null)) continue;	//	don't sort timers by target
 	            	
 	            	List<Tween> list = null;
 	            	if (!tweens.TryGetValue(tween.Target, out list))
@@ -227,13 +227,13 @@ namespace Glide
 	            {
 	            	var tween = toRemove[i];
 	                allTweens.Remove(tween);
-	                if (tween.Target == null) continue; // see above
+	                if (ReferenceEquals(tween.Target, null)) continue; // see above
 	                
 	                List<Tween> list = null;
 	                if (tweens.TryGetValue(tween.Target, out list))
 	                {
 	                    list.Remove(tween);
-	                    if (list.Count == 0)
+	                    if (list.Count.Equals(0))
 	                    {
 	                        tweens.Remove(tween.Target);
 	                    }

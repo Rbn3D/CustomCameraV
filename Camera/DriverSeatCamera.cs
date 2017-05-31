@@ -12,7 +12,15 @@ namespace CustomCameraVScript
 {
     class DriverSeatCamera : CustomCamera
     {
+        public bool useRollRotation = true;
+
         private bool isCycleOrBike = false;
+
+        public const float defualtFarClip = 800f;
+        public const float defualtNearClip = 0.15f;
+
+        public const float driverSeatFarClip = 750f;
+        public const float driverSeatNearClip = 0.10f;
 
         public DriverSeatCamera(CustomCameraV script, Tweener tweener) : base(script, tweener)
         {
@@ -24,6 +32,9 @@ namespace CustomCameraVScript
             base.setupCamera();
 
             Game.Player.Character.Alpha = 0;
+
+            targetCamera.FarClip = driverSeatFarClip;
+            targetCamera.NearClip = driverSeatNearClip;
         }
 
         public override void updateCamera()
@@ -51,6 +62,9 @@ namespace CustomCameraVScript
             base.haltCamera();
 
             Game.Player.Character.Alpha = 255;
+
+            targetCamera.FarClip = defualtFarClip;
+            targetCamera.NearClip = defualtNearClip;
         }
 
         public override string getCameraName()

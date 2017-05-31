@@ -29,7 +29,7 @@ namespace CustomCameraVScript
 
             foreach (var entry in watchedVariables)
             {
-                DrawInfo(entry.Key + (entry.Value == null ? "" : ": " + entry.Value.DynamicInvoke().ToString()), x, y, fontSize);
+                DrawInfo(entry.Key + (ReferenceEquals(entry.Value, null) ? "" : ": " + entry.Value.DynamicInvoke().ToString()), x, y, fontSize);
 
                 y += distanceBetweenLines;
             }

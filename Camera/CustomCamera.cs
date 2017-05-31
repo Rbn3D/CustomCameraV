@@ -38,7 +38,7 @@ namespace CustomCameraVScript
 
         public virtual void setupCamera()
         {
-            lowUpdateTimer = tweener.Timer(lowUpdateCheckTime, lowUpdateCheckTime).Repeat().OnComplete(new Action(onLowUpdateCheck));
+            lowUpdateTimer = tweener.Timer(0f, lowUpdateCheckTime).Repeat().OnComplete(new Action(onLowUpdateCheck));
 
             setupDebugVars();
         }

@@ -70,6 +70,8 @@ namespace CustomCameraVScript
 
             isTowOrTrailerTruck = veh.ClassType == VehicleClass.Commercial || veh.HasTowArm || veh.HasBone("attach_female");
 
+            updateTowedVehicleOrTrailerLongitude();
+
             smoothVelocity = veh.Velocity;
         }
 

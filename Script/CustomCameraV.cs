@@ -17,7 +17,6 @@ namespace CustomCameraVScript
         public Vehicle veh = null;
 
         public Camera gameCamera;
-        public bool init = true;
         public bool camSet = false;
 
         public bool customCamEnabled = true;
@@ -42,6 +41,8 @@ namespace CustomCameraVScript
 
         // Notify user about mod enabled of first vehicle enter?
         public bool notifyModEnabled = true;
+        // Display cam name when user switches camera?
+        public bool notifySwitchCamera = true;
 
         // TODO: Delete these two
         public bool isRearCameraOnly = false;
@@ -69,6 +70,11 @@ namespace CustomCameraVScript
                     _currentCam.targetCamera = gameCamera;
                     _currentCam.setupCamera();
                     _currentCam.UpdateVehicleProperties();
+
+                    if(notifySwitchCamera)
+                    {
+                        UIex.Notify(_currentCam.getCameraName());
+                    }
                 }
             }
         }
@@ -76,6 +82,7 @@ namespace CustomCameraVScript
         public CustomCameraV()
         {
             // instance = this;
+            UIex.tweener = tweener;
 
             this.Tick += OnTick;
             this.KeyUp += onKeyUp;
@@ -99,7 +106,7 @@ namespace CustomCameraVScript
         private void LoadSettings()
         {
             //// general
-            //customCamEnabled = Settings.GetValue<bool>("general", "enabled", customCamEnabled);
+            customCamEnabled = Settings.GetValue<bool>("general", "enabled", customCamEnabled);
             //distanceOffset = Settings.GetValue<float>("general", "distanceOffset", distanceOffset);
             //heightOffset = Settings.GetValue<float>("general", "heightOffset", heightOffset);
             //fov = Settings.GetValue<float>("general", "fov", fov);
@@ -130,68 +137,62 @@ namespace CustomCameraVScript
 
         public void OnTick(object sender, EventArgs e)
         {
-            if (init && customCamEnabled)
-            {
-                init = false;
-            }
-
             var player = Game.Player.Character;
 
             if (player.IsInVehicle() && customCamEnabled)
             {
                 Game.DisableControlThisFrame(2, GTA.Control.NextCamera);
-            }
 
-            if (player.IsInVehicle() && customCamEnabled && !Game.Player.IsAiming && !Game.IsControlPressed(2, GTA.Control.VehicleLookBehind))
-            {            
-                veh = player.CurrentVehicle;
-                var NewVehHash = veh.GetHashCode();
-
-                if(oldVehHash != NewVehHash)
+                if (!Game.Player.IsAiming && !Game.IsControlPressed(2, GTA.Control.VehicleLookBehind))
                 {
-                    UpdateCameraVehicleProperties();
-                }
+                    veh = player.CurrentVehicle;
+                    var NewVehHash = veh.GetHashCode();
 
-                oldVehHash = NewVehHash;
-
-                if (isSuitableForCam)
-                {
-
-                    updateMouseAndGamepadInput(veh);
-
-                    updateCameraCommon();
-
-                    if (!camSet)
+                    if (oldVehHash != NewVehHash)
                     {
-                        setupDebugStats(veh);
-                        Function.Call(Hash.SET_FOLLOW_VEHICLE_CAM_VIEW_MODE, 1);
-                        SetupCameras(player, veh);
-                        SetupCurrentCamera();
+                        UpdateCameraVehicleProperties();
+                    }
 
-                        if (firstVeh && notifyModEnabled)
+                    oldVehHash = NewVehHash;
+
+                    if (isSuitableForCam)
+                    {
+                        updateMouseAndGamepadInput(veh);
+
+                        updateCameraCommon();
+
+                        if (!camSet)
                         {
-                            UI.Notify("CustomCameraV Enabled (Press "+ toggleEnabledKey.ToString() +" to disable)");
-                            firstVeh = false;
+                            setupDebugStats(veh);
+                            Function.Call(Hash.SET_FOLLOW_VEHICLE_CAM_VIEW_MODE, 1);
+                            SetupCameras(player, veh);
+                            SetupCurrentCamera();
+
+                            if (firstVeh && notifyModEnabled)
+                            {
+                                UI.Notify("CustomCameraV Enabled (Press " + toggleEnabledKey.ToString() + " to disable)");
+                                firstVeh = false;
+                            }
+                        }
+                        else
+                        {
+                            if (showDebugStats)
+                            {
+                                drawDebugStats(veh);
+                            }
+                        }
+                        // Game.DisableControlThisFrame(2, GTA.Control.NextCamera);
+
+                        updateCurrentCamera();
+
+                        if (Game.IsControlJustPressed(2, GTA.Control.NextCamera))
+                        {
+                            switchToNextCustomCamera();
                         }
                     }
-                    else
-                    {
-                        if (showDebugStats)
-                        {
-                            drawDebugStats(veh);
-                        }
-                    }
-                    // Game.DisableControlThisFrame(2, GTA.Control.NextCamera);
-
-                    updateCurrentCamera();
-
-                    if(Game.IsControlJustPressed(2, GTA.Control.NextCamera))
-                    {
-                        switchToNextCustomCamera();
-                    }
                 }
             }
-            else if(camSet)
+            else if (camSet)
             {
                 ExitCustomCameraView();
             }
@@ -199,7 +200,6 @@ namespace CustomCameraVScript
             if (camSet && !customCamEnabled)
                 ExitCustomCameraView();
 
-            //tweener.Update(realDelta);
             tweener.Update(getDeltaTime());
         }
 
@@ -232,19 +232,13 @@ namespace CustomCameraVScript
             dbgPanel.header = "CustomCameraV debug ( press " + toggleDebugKey.ToString() + " to hide )";
 
             dbgPanel.watchedVariables.Add("Veh Speed", () => { return veh.Speed; });
-            dbgPanel.watchedVariables.Add("Veh vel. mag", () => { return MathR.Max(veh.Speed, veh.Velocity.Magnitude() * 0.045454f); });
-            //dbgPanel.watchedVariables.Add("Smooth fixed vs velocity", () => { return smoothFixedVsVelocity; });
-            //dbgPanel.watchedVariables.Add("Smooth is in air", () => { return smoothIsInAir; });
-            //dbgPanel.watchedVariables.Add("Current gear", () => { return veh.CurrentGear; });
-            //dbgPanel.watchedVariables.Add("LookFrontOffset", () => { return computeLookFrontOffset(veh, MathR.Max(veh.Speed, veh.Velocity.Magnitude() * 0.045454f), smoothIsInAir); });
-            //dbgPanel.watchedVariables.Add("Height", () => { return currentVehicleHeight; });
-            //dbgPanel.watchedVariables.Add("Longitude", () => { return currentVehicleLongitudeOffset; });
             //dbgPanel.watchedVariables.Add("MouseX", () => { return InputR.MouseX; });
             //dbgPanel.watchedVariables.Add("MouseY", () => { return InputR.MouseY; });
             dbgPanel.watchedVariables.Add("MouseMoving", () => { return isMouseMoving; });
             dbgPanel.watchedVariables.Add("MouseLooking", () => { return isMouseLooking; });
             dbgPanel.watchedVariables.Add("MouseLookingSmooth", () => { return smoothIsFreeLooking; });
             dbgPanel.watchedVariables.Add("vehDisplayName", () => { return veh.DisplayName; });
+            dbgPanel.watchedVariables.Add("vehClass", () => { return veh.ClassType.ToString(); });
 
             dbgPanel.watchedVariables.Add("vehRotX", () => { return veh.Rotation.X; });
             dbgPanel.watchedVariables.Add("vehRotY", () => { return veh.Rotation.Y; });
@@ -370,12 +364,12 @@ namespace CustomCameraVScript
 
         private void onKeyDown(object sender, KeyEventArgs e)
         {
-            if (e.KeyCode == toggleDebugKey)
+            if (e.KeyCode.Equals(toggleDebugKey))
             {
                 showDebugStats = !showDebugStats;
             }
 
-            if (e.KeyCode == toggleEnabledKey)
+            if (e.KeyCode.Equals(toggleEnabledKey))
             {
                 customCamEnabled = !customCamEnabled;
             }

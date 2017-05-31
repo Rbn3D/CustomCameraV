@@ -112,7 +112,7 @@ namespace Glide
 						return;
 				}
 				
-				if (time == 0 && timesRepeated == 0 && !ReferenceEquals(begin, null))
+				if (time.Equals(0) && timesRepeated.Equals(0) && !ReferenceEquals(begin, null))
 					begin();
 				
 				time += elapsed;
@@ -157,7 +157,7 @@ namespace Glide
 				
 				//	If the timer is zero here, we just restarted.
 				//	If reflect mode is on, flip start to end
-				if (time == 0 && behavior.HasFlag(Lerper.Behavior.Reflect))
+				if (time.Equals(0) && behavior.HasFlag(Lerper.Behavior.Reflect))
 					Reverse();
 				
 				if (!ReferenceEquals(update, null))
@@ -215,7 +215,7 @@ namespace Glide
 		/// <returns>A reference to this.</returns>
 		public Tween OnBegin(Action callback)
 		{
-			if (begin == null) begin = callback;
+			if (ReferenceEquals(begin, null)) begin = callback;
 			else begin += callback;
 			return this;
 		}
@@ -228,7 +228,7 @@ namespace Glide
 		/// <returns>A reference to this.</returns>
 		public Tween OnComplete(Action callback)
 		{
-			if (complete == null) complete = callback;
+			if (ReferenceEquals(complete, null)) complete = callback;
 			else complete += callback;
 			return this;
 		}
@@ -240,7 +240,7 @@ namespace Glide
 		/// <returns>A reference to this.</returns>
 		public Tween OnUpdate(Action callback)
 		{
-			if (update == null) update = callback;
+			if (ReferenceEquals(update, null)) update = callback;
 			else update += callback;
 			return this;
 		}
@@ -306,7 +306,7 @@ namespace Glide
 		public Tween Rotation(RotationUnit unit = RotationUnit.Degrees)
 		{
 			behavior |= Lerper.Behavior.Rotation;
-			behavior |= (unit == RotationUnit.Degrees) ? Lerper.Behavior.RotationDegrees : Lerper.Behavior.RotationRadians;
+			behavior |= (unit.Equals(RotationUnit.Degrees)) ? Lerper.Behavior.RotationDegrees : Lerper.Behavior.RotationRadians;
 
 			return this;
 		}
@@ -345,7 +345,7 @@ namespace Glide
 				canceled++;
 			}
 			
-			if (canceled == vars.Count)
+			if (canceled.Equals(vars.Count))
 				Cancel();
 		}
 		

@@ -68,6 +68,7 @@
     <Compile Include="Tween\Tween.cs" />
     <Compile Include="Tween\Tweener.cs" />
     <Compile Include="UI\DebugPanel.cs" />
+    <Compile Include="UI\UIex.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
