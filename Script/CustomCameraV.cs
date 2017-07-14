@@ -185,6 +185,10 @@ namespace CustomCameraVScript
                         }
                     }
                 }
+                else if (camSet) // ugly repeated code
+                {
+                    ExitCustomCameraView();
+                }
             }
             else if (camSet)
             {
@@ -358,6 +362,7 @@ namespace CustomCameraVScript
 
         public override void OnKeyDown(KeyEventArgs e)
         {
+            //GTA.UI.Screen.ShowNotification("OnKeyDown called!"); // Doesn't work
             if (e.KeyCode.Equals(toggleDebugKey))
             {
                 showDebugStats = !showDebugStats;
@@ -371,7 +376,7 @@ namespace CustomCameraVScript
 
         public override void OnKeyUp(KeyEventArgs e)
         {
-
+            //GTA.UI.Screen.ShowNotification("OnKeyUp called!"); // Doesn't work either
         }
 
         private void ExitCustomCameraView()
