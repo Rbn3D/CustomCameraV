@@ -1,6 +1,7 @@
 ﻿using System;
 using GTA;
 using CustomCameraVScript;
+using GTA.UI;
 
 namespace CustomCameraVScript
 {
@@ -10,7 +11,7 @@ namespace CustomCameraVScript
         {
             get
             {
-                return (int)(((GTA.Native.Function.Call<int>(GTA.Native.Hash.GET_CONTROL_VALUE, 0, 239) - 127) / 127.0f) * UI.WIDTH);
+                return (int)(((GTA.Native.Function.Call<int>(Hash.GET_CONTROL_VALUE, 0, 239) - 127) / 127.0f) * Screen.Width);
             }
         }
 
@@ -18,7 +19,7 @@ namespace CustomCameraVScript
         {
             get
             {
-                return (int)(((GTA.Native.Function.Call<int>(GTA.Native.Hash.GET_CONTROL_VALUE, 0, 240) - 127) / 127.0f) * UI.HEIGHT);
+                return (int)(((GTA.Native.Function.Call<int>(Hash.GET_CONTROL_VALUE, 0, 240) - 127) / 127.0f) * Screen.Height);
             }
         }
     }

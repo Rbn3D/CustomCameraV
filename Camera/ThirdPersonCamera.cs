@@ -32,7 +32,7 @@ namespace CustomCameraVScript
         public float distanceOffset = 1.75f;
 
         public float fov = 75f;
-        public float heightOffset = 0.3f;
+        public float heightOffset = 1.25f;
         public float extraCamHeight = 0.10f;
 
         public bool accelerationAffectsCamDistance = true;
@@ -101,7 +101,7 @@ namespace CustomCameraVScript
             if (veh.HasBone("bumper_r"))
             {
                 var pos = veh.Position;
-                var rearBumperPos = veh.GetBoneCoord("bumper_r");
+                var rearBumperPos = veh.GetBonePosition("bumper_r");
 
                 return Vector3.Distance(pos, rearBumperPos) + distanceAdd;
             }
@@ -109,7 +109,7 @@ namespace CustomCameraVScript
             if (veh.HasBone("spoiler"))
             {
                 var pos = veh.Position;
-                var spoilerPos = veh.GetBoneCoord("spoiler");
+                var spoilerPos = veh.GetBonePosition("spoiler");
 
                 return Vector3.Distance(pos, spoilerPos) + distanceAdd;
             }
@@ -117,7 +117,7 @@ namespace CustomCameraVScript
             if (veh.HasBone("neon_b"))
             {
                 var pos = veh.Position;
-                var rarNeonPos = veh.GetBoneCoord("neon_b");
+                var rarNeonPos = veh.GetBonePosition("neon_b");
 
                 return Vector3.Distance(pos, rarNeonPos) + 0.1f + distanceAdd;
             }
@@ -125,7 +125,7 @@ namespace CustomCameraVScript
             if (veh.HasBone("boot"))
             {
                 var pos = veh.Position;
-                var bootPos = veh.GetBoneCoord("boot");
+                var bootPos = veh.GetBonePosition("boot");
 
                 return Vector3.Distance(pos, bootPos) + 2.0f + distanceAdd;
             }
@@ -133,7 +133,7 @@ namespace CustomCameraVScript
             if (veh.HasBone("windscreen_r"))
             {
                 var pos = veh.Position;
-                var rearGlassPos = veh.GetBoneCoord("windscreen_r");
+                var rearGlassPos = veh.GetBonePosition("windscreen_r");
 
                 return Vector3.Distance(pos, rearGlassPos) + 1.0f + distanceAdd;
             }

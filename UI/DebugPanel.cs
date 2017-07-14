@@ -1,4 +1,5 @@
 ﻿using GTA;
+using GTA.UI;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -37,7 +38,7 @@ namespace CustomCameraVScript
 
         protected void DrawInfo(string caption, int x, int y, float fontSize)
         {
-            UIText text = new UIText(caption, new Point(x, y), fontSize);
+            Text text = new Text(caption, new Point(x, y), fontSize);
             text.Draw();
         }
 

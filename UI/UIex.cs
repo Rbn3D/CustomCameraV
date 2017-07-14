@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CustomCameraVScript;
 using Glide;
 using GTA;
+using GTA.UI;
 
 namespace CustomCameraVScript
 {
@@ -17,7 +18,7 @@ namespace CustomCameraVScript
 
         public static void Notify(string text, float time = 2.0f)
         {
-            var notification = UI.Notify(text);
+            var notification = GTA.UI.Screen.ShowNotification(text);
 
             tweener.Timer(0f, time).OnComplete(() => { notification.Hide(); });
         }

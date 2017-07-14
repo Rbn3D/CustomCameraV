@@ -31,7 +31,7 @@ namespace CustomCameraVScript
         {
             base.setupCamera();
 
-            Game.Player.Character.Alpha = 0;
+            Game.Player.Character.Opacity = 0;
 
             targetCamera.FarClip = driverSeatFarClip;
             targetCamera.NearClip = driverSeatNearClip;
@@ -41,9 +41,9 @@ namespace CustomCameraVScript
         {
             Vector3 camPos;
             if(!isCycleOrBike)
-                camPos = veh.GetBoneCoord("seat_dside_f") + (veh.UpVector * 0.69f);
+                camPos = veh.GetBonePosition("seat_dside_f") + (veh.UpVector * 0.69f);
             else
-                camPos = veh.GetBoneCoord("seat_f") + (veh.UpVector * 0.4f) + (veh.ForwardVector * 0.45f);
+                camPos = veh.GetBonePosition("seat_f") + (veh.UpVector * 0.4f) + (veh.ForwardVector * 0.45f);
 
             targetCamera.Position = camPos;
             var lookAt = camPos + veh.ForwardVector;
@@ -61,7 +61,7 @@ namespace CustomCameraVScript
         {
             base.haltCamera();
 
-            Game.Player.Character.Alpha = 255;
+            Game.Player.Character.Opacity = 255;
 
             targetCamera.FarClip = defualtFarClip;
             targetCamera.NearClip = defualtNearClip;

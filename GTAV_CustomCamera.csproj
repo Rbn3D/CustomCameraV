@@ -40,8 +40,8 @@
     <UseVSHostingProcess>false</UseVSHostingProcess>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ScriptHookVDotNet">
-      <HintPath>..\..\..\GTAVMods\SDK\ScriptHookVDotNet.dll</HintPath>
+    <Reference Include="SHVDNPro">
+      <HintPath>..\SHVDNPro\x64\Release\SHVDNPro.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="Microsoft.CSharp" />

@@ -8,7 +8,7 @@ namespace CustomCameraVScript
     {
         public static float getDeltaTime()
         {
-            return Function.Call<float>(Hash.TIMESTEP);
+            return Function.Call<float>(GTA.Hash.TIMESTEP);
         }
     }
 }

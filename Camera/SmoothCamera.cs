@@ -69,7 +69,7 @@ namespace CustomCameraVScript
             float rotSpeed = rotationSpeed;
             if(useVariableRotSpeed)
             {
-                var desiredRootSpeed = MathR.SmoothStep(minRotSpeed, maxRotSpeed, MathR.Clamp01(AngleInDeg(veh.ForwardVector, veh.Velocity) / 90));
+                var desiredRootSpeed = MathR.SmoothStep(minRotSpeed, maxRotSpeed, MathR.Clamp01(AngleInDeg(veh.ForwardVector, veh.Velocity) /* / 90 */ * 0.0111111111111111f));
                 currentRootSpeed = MathR.Lerp(currentRootSpeed, desiredRootSpeed, 2f * Time.getDeltaTime());
             }
 
@@ -86,10 +86,7 @@ namespace CustomCameraVScript
                 // Bykes / cycles (avoid unwanted cam rotations during wheelies/stoppies)
                 if (veh.Speed < 3f)
                 {
-                    if(veh.IsOnAllWheels)
-                        vehQuat = getRotationFromAverageWheelPosBike();
-                    else
-                        vehQuat = getSurfaceNormalRotation(); // Possibly unperformant (using it only for wheelie/stoppie al low speeds)
+                    vehQuat = getSurfaceNormalRotation(); // Possibly unperformant (using it only for wheelie/stoppie al low speeds)
                 }
                 else
                     vehQuat = velocityQuat;
@@ -98,7 +95,8 @@ namespace CustomCameraVScript
             {
                 if(avoidCameraBouncinessCar && veh.IsOnAllWheels)
                 {
-                    vehQuat = getRotationFromAverageWheelPosCar(); // Avoid camera movements caused by car suspension movement (wheels are on the floor)
+                    //vehQuat = getRotationFromAverageWheelPosCar(); // Avoid camera movements caused by car suspension movement (wheels are on the floor)
+                    vehQuat = getSurfaceNormalRotation(); // Avoid camera movements caused by car suspension movement (wheels are on the floor)
                 }
                 else
                 {
@@ -117,7 +115,7 @@ namespace CustomCameraVScript
             if (veh.Speed > 0.15f)
             {
                 // TODO Optimize?
-                finalDistMult = Vector3.Angle(finalQuat * Vector3.RelativeFront, veh.Velocity) / 180f;
+                finalDistMult = Vector3.Angle(finalQuat * Vector3.RelativeFront, veh.Velocity) /* / 180f */ * 0.0055555555555556f;
                 finalDistMult = MathR.Lerp(1f, -1f, finalDistMult);
             }
 
@@ -136,10 +134,10 @@ namespace CustomCameraVScript
         private Quaternion getRotationFromAverageWheelPosBike()
         {
             // Front
-            var fPos = veh.GetBoneCoord("wheel_lf");
+            var fPos = veh.GetBonePosition("wheel_lf");
 
             // Rear
-            var rPos = veh.GetBoneCoord("wheel_lr");
+            var rPos = veh.GetBonePosition("wheel_lr");
 
             var dir = fPos - rPos;
 
@@ -149,18 +147,18 @@ namespace CustomCameraVScript
         private Quaternion getRotationFromAverageWheelPosCar()
         {
             // Front Left
-            var flPos = veh.GetBoneCoord("wheel_lf");
+            var flPos = veh.GetBonePosition("wheel_lf");
 
             // Front Right
-            var frPos = veh.GetBoneCoord("wheel_rf");
+            var frPos = veh.GetBonePosition("wheel_rf");
 
             var frontAverage = (flPos + frPos) * 0.5f;
 
             // Rear Left
-            var rlPos = veh.GetBoneCoord("wheel_lr");
+            var rlPos = veh.GetBonePosition("wheel_lr");
 
             // Rear Right
-            var rrPos = veh.GetBoneCoord("wheel_rr");
+            var rrPos = veh.GetBonePosition("wheel_rr");
 
             var rearAverage = (rlPos + rrPos) * 0.5f;
 
@@ -178,19 +176,12 @@ namespace CustomCameraVScript
 
         private Quaternion getSurfaceNormalRotation()
         {
-            frameCounter++;
-            bool proccess = frameCounter % 3 == 0; // Only proccess every 3 frames (Raycast seems to be slow on SHVDN)
-            frameCounter = frameCounter % 9;
+            var raycast = World.Raycast(veh.Position, Vector3.WorldDown, 2f, IntersectOptions.Map, veh);
 
-            if(proccess)
+            if (raycast.DitHit)
             {
-                var raycast = World.Raycast(veh.Position, Vector3.WorldDown, 2f, IntersectOptions.Map, veh);
-
-                if (raycast.DitHitAnything)
-                {
-                    cachedRaycastDir = MathR.OrthoNormalize(raycast.SurfaceNormal, veh.ForwardVector);
-                    //cachedRaycastDir = Vector3.Cross(raycast.SurfaceNormal, veh.RightVector).Normalized;
-                }
+                //cachedRaycastDir = MathR.OrthoNormalize(raycast.SurfaceNormal, veh.ForwardVector);
+                cachedRaycastDir = Vector3.Cross(raycast.SurfaceNormal, veh.RightVector).Normalized;
             }
 
             return MathR.XLookRotation(cachedRaycastDir);

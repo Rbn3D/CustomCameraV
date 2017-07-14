@@ -36,8 +36,8 @@ namespace CustomCameraVScript
 
         private bool firstVeh = true;
 
-        public Keys toggleEnabledKey = Keys.NumPad1;
-        public Keys toggleDebugKey = Keys.NumPad2;
+        public Keys toggleEnabledKey = Keys.D1;
+        public Keys toggleDebugKey = Keys.D2;
 
         // Notify user about mod enabled of first vehicle enter?
         public bool notifyModEnabled = true;
@@ -79,15 +79,10 @@ namespace CustomCameraVScript
             }
         }
 
-        public CustomCameraV()
+        public override void OnInit()
         {
             // instance = this;
             UIex.tweener = tweener;
-
-            this.Tick += OnTick;
-            this.KeyUp += onKeyUp;
-            this.KeyDown += onKeyDown;
-            this.Aborted += onAborted;
 
             // Always use invariant culture (dot decimal separator)
             Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
@@ -106,7 +101,7 @@ namespace CustomCameraVScript
         private void LoadSettings()
         {
             //// general
-            customCamEnabled = Settings.GetValue<bool>("general", "enabled", customCamEnabled);
+            /* customCamEnabled = Settings.GetValue<bool>("general", "enabled", customCamEnabled); */
             //distanceOffset = Settings.GetValue<float>("general", "distanceOffset", distanceOffset);
             //heightOffset = Settings.GetValue<float>("general", "heightOffset", heightOffset);
             //fov = Settings.GetValue<float>("general", "fov", fov);
@@ -123,19 +118,18 @@ namespace CustomCameraVScript
             //extraCamHeight = Settings.GetValue<float>("advanced", "extraCamHeight", extraCamHeight);
 
             ////key-mappings
+
+            /*
             toggleEnabledKey = Settings.GetValue<Keys>("keymappings", "toggleEnabledKey", toggleEnabledKey);
             toggleDebugKey = Settings.GetValue<Keys>("keymappings", "toggleDebugKey", toggleDebugKey);
+            */
 
             //// Sanitize
             //generalMovementSpeed = MathR.Clamp(generalMovementSpeed, 0.1f, 10f);
         }
 
-        private void onAborted(object sender, EventArgs e)
-        {
-            ExitCustomCameraView();
-        }
 
-        public void OnTick(object sender, EventArgs e)
+        public override void OnTick()
         {
             var player = Game.Player.Character;
 
@@ -170,7 +164,7 @@ namespace CustomCameraVScript
 
                             if (firstVeh && notifyModEnabled)
                             {
-                                UI.Notify("CustomCameraV Enabled (Press " + toggleEnabledKey.ToString() + " to disable)");
+                                GTA.UI.Screen.ShowNotification("CustomCameraV Enabled (Press " + toggleEnabledKey.ToString() + " to disable)");
                                 firstVeh = false;
                             }
                         }
@@ -362,7 +356,7 @@ namespace CustomCameraVScript
         }
 
 
-        private void onKeyDown(object sender, KeyEventArgs e)
+        public override void OnKeyDown(KeyEventArgs e)
         {
             if (e.KeyCode.Equals(toggleDebugKey))
             {
@@ -375,7 +369,7 @@ namespace CustomCameraVScript
             }
         }
 
-        private void onKeyUp(object sender, KeyEventArgs e)
+        public override void OnKeyUp(KeyEventArgs e)
         {
 
         }
@@ -388,12 +382,6 @@ namespace CustomCameraVScript
             veh = null;
             World.RenderingCamera = null;
             camSet = false;
-        }
-
-        protected override void Dispose(bool A_0)
-        {
-            World.RenderingCamera = null;
-            base.Dispose(A_0);
         }
     }
 }
