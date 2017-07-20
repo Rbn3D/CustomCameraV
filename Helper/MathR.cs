@@ -368,7 +368,7 @@ namespace CustomCameraVScript
 
             if (Math.Abs(dot - (-1.0f)) < float.Epsilon)
             {
-                return new Quaternion(Vector3.WorldUp.X, Vector3.WorldUp.Y, Vector3.WorldUp.Z, 3.1415926535897932f);
+                return new Quaternion(Vector3.WorldUp.X, Vector3.WorldUp.Y, Vector3.WorldUp.Z, PI);
             }
             if (Math.Abs(dot - (1.0f)) < float.Epsilon)
             {
@@ -395,12 +395,14 @@ namespace CustomCameraVScript
 
         public static Vector3 OrthoNormalize(Vector3 normal, Vector3 tangent)
         {
-            normal = normal.Normalized;
+            normal.Normalize();
 
             Vector3 proj = normal * Vector3.Dot(tangent, normal);
             tangent = Vector3.Subtract(tangent, proj);
 
-            return tangent.Normalized;
+            tangent.Normalize();
+
+            return tangent;
         }
 
         public static Matrix Matrix4LookAt(Vector3 eye, Vector3 target, Vector3 up)
@@ -461,6 +463,8 @@ namespace CustomCameraVScript
         {
             Quaternion rightToForward = Quaternion.Euler(0f, 90f, 0f);
             Quaternion forwardToTarget = MathR.LookRotationInternalY(direction, up);
+
+            forwardToTarget.Normalize();
 
             return forwardToTarget * rightToForward;
         }

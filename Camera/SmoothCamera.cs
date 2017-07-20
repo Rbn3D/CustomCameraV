@@ -28,8 +28,10 @@ namespace CustomCameraVScript
         private Quaternion finalQuat;
         private float surfaceNormalDistance;
         private Vector3 cachedRaycastDir;
-        private int frameCounter = 0;
         private Quaternion smoothQuat = Quaternion.Identity;
+        private float smoothIsOnAllWheels = 1f;
+        private Vector3 cachedSurfaceNormal = Vector3.WorldUp;
+        private Vector3 smoothSurfaceNormal;
 
         public SmoothCamera(CustomCameraV script, Tweener tweener) : base(script, tweener)
         {
@@ -93,10 +95,9 @@ namespace CustomCameraVScript
             }
             else // cars
             {
-                if(avoidCameraBouncinessCar && veh.IsOnAllWheels)
+                if(avoidCameraBouncinessCar)
                 {
-                    //vehQuat = getRotationFromAverageWheelPosCar(); // Avoid camera movements caused by car suspension movement (wheels are on the floor)
-                    vehQuat = getSurfaceNormalRotation(); // Avoid camera movements caused by car suspension movement (wheels are on the floor)
+                    vehQuat = Quaternion.Lerp(veh.Quaternion, getSurfaceNormalRotation(), smoothIsOnAllWheels); // Avoid camera movements caused by car suspension movement (if veh is on all wheels)
                 }
                 else
                 {
@@ -105,11 +106,11 @@ namespace CustomCameraVScript
             }
 
             //smoothQuat = MathR.QuatNlerp(smoothQuat, veh.Quaternion, MathR.Clamp01(rotationSpeed * Time.getDeltaTime()));
-            smoothQuat = Quaternion.SlerpUnclamped(smoothQuat, vehQuat, rotationSpeed * Time.getDeltaTime());
+            smoothQuat = Quaternion.Slerp(smoothQuat, vehQuat, rotationSpeed * Time.getDeltaTime());
 
             smoothVelQuat = Quaternion.Lerp(smoothVelQuat, velocityQuat, 2f * Time.getDeltaTime());
 
-            finalQuat = Quaternion.Lerp(smoothQuat, velocityQuat, script.smoothIsInAir);
+            finalQuat = Quaternion.Lerp(smoothQuat, smoothVelQuat, script.smoothIsInAir);
 
             float finalDistMult = 1f;
             if (veh.Speed > 0.15f)
@@ -176,13 +177,16 @@ namespace CustomCameraVScript
 
         private Quaternion getSurfaceNormalRotation()
         {
-            var raycast = World.Raycast(veh.Position, Vector3.WorldDown, 2f, IntersectOptions.Map, veh);
+            var raycast = World.Raycast(veh.Position, Vector3.WorldDown, 4f, IntersectOptions.Map, veh);
 
             if (raycast.DitHit)
             {
-                //cachedRaycastDir = MathR.OrthoNormalize(raycast.SurfaceNormal, veh.ForwardVector);
-                cachedRaycastDir = Vector3.Cross(raycast.SurfaceNormal, veh.RightVector).Normalized;
+                cachedSurfaceNormal = raycast.SurfaceNormal;
             }
+            smoothSurfaceNormal = Vector3.Lerp(smoothSurfaceNormal, cachedSurfaceNormal, 3.2f * Time.getDeltaTime());
+
+            //cachedRaycastDir = Vector3.Cross(smoothSurfaceNormal, MathR.OrthoNormalize(smoothSurfaceNormal, veh.RightVector)).Normalized;
+            cachedRaycastDir = Vector3.Cross(smoothSurfaceNormal, veh.RightVector).Normalized;
 
             return MathR.XLookRotation(cachedRaycastDir);
         }
@@ -204,6 +208,8 @@ namespace CustomCameraVScript
                 var factor = getVehicleAcceleration() / (maxHighSpeed * 10f);
                 currentDistanceIncrement += MathR.Lerp(0f, accelerationCamDistanceMultiplier, Easing.EaseOut(factor, useEasingForCamDistance ? EasingType.Quadratic : EasingType.Linear));
             }
+
+            smoothIsOnAllWheels = MathR.Lerp(smoothIsOnAllWheels, Function.Call<bool>(Hash.IS_VEHICLE_ON_ALL_WHEELS, veh) ? 1f : 0f, 2f * Time.getDeltaTime());
         }
 
         public override void haltCamera()
@@ -235,8 +241,6 @@ namespace CustomCameraVScript
             vars.Add("V3AngleBetween", () => { return Vector3.Angle(finalQuat * Vector3.RelativeFront, veh.Velocity); });
             vars.Add("dot", () => { return Quaternion.Dot(finalQuat, smoothVelQuat); });
             vars.Add("veh.HeightAboveGround", () => { return veh.HeightAboveGround; });
-            vars.Add("CamFarClip", () => { return targetCamera.FarClip; });
-            vars.Add("CamNearClip", () => { return targetCamera.NearClip; });
 
             return vars;
         }

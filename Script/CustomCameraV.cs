@@ -131,15 +131,21 @@ namespace CustomCameraVScript
 
         public override void OnTick()
         {
-            var player = Game.Player.Character;
+            var player = Game.Player;
+            var playerPed = Game.Player.Character;
 
-            if (player.IsInVehicle() && customCamEnabled)
+            if(Game.IsPaused)
+            {
+                Yield();
+            }
+
+            if (playerPed.IsInVehicle() && player.CanControlCharacter && !Game.IsCutsceneActive && customCamEnabled)
             {
                 Game.DisableControlThisFrame(2, GTA.Control.NextCamera);
 
                 if (!Game.Player.IsAiming && !Game.IsControlPressed(2, GTA.Control.VehicleLookBehind))
                 {
-                    veh = player.CurrentVehicle;
+                    veh = playerPed.CurrentVehicle;
                     var NewVehHash = veh.GetHashCode();
 
                     if (oldVehHash != NewVehHash)
@@ -159,7 +165,7 @@ namespace CustomCameraVScript
                         {
                             setupDebugStats(veh);
                             Function.Call(Hash.SET_FOLLOW_VEHICLE_CAM_VIEW_MODE, 1);
-                            SetupCameras(player, veh);
+                            SetupCameras(playerPed, veh);
                             SetupCurrentCamera();
 
                             if (firstVeh && notifyModEnabled)
@@ -353,7 +359,7 @@ namespace CustomCameraVScript
 
         private void updateCameraCommon()
         {
-            smoothIsInAir = MathR.Lerp(smoothIsInAir, veh.IsInAir || veh.IsUpsideDown ? 1f : 0f, 2f * getDeltaTime());
+            smoothIsInAir = MathR.Lerp(smoothIsInAir, (veh.IsInAir || veh.IsUpsideDown) ? 1f : 0f, 2f * getDeltaTime());
             smoothIsRearGear = MathR.Lerp(smoothIsRearGear, veh.CurrentGear == 0 ? 1f : 0f, 1.3f * getDeltaTime());
             //speedCoeff = MathR.Max(veh.Speed, veh.Velocity.Magnitude() * 0.045454f);
             //pointAt = veh.Position + fullHeightOffset + (veh.ForwardVector * computeLookFrontOffset(veh, speedCoeff, smoothIsInAir));
