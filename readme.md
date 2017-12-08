@@ -3,7 +3,8 @@
 
 ## A custom vehicle camera system for Grand Theft Auto V ##
 
-#### Warning: This project is a Work In Progress and may contain some bugs. Feel free to compile and test. ####
+
+#### Warning: NO LONGER MANTAINED, USE THIS INSTEAD: https://github.com/Rbn3D/CustomCameraVPlus ####
 
 ### Features ###
 
