@@ -29,7 +29,7 @@ namespace CustomCameraVScript
 
             foreach (var entry in watchedVariables)
             {
-                DrawInfo(entry.Key + (entry.Value == null ? "" : ": " + entry.Value.DynamicInvoke().ToString()), x, y, fontSize);
+                DrawInfo(entry.Key + (ReferenceEquals(entry.Value, null) ? "" : ": " + entry.Value.DynamicInvoke().ToString()), x, y, fontSize);
 
                 y += distanceBetweenLines;
             }
@@ -39,6 +39,42 @@ namespace CustomCameraVScript
         {
             UIText text = new UIText(caption, new Point(x, y), fontSize);
             text.Draw();
+        }
+
+        public bool AddVar(string key, watchDelegate fn)
+        {
+            if (!watchedVariables.Keys.Contains(key))
+                watchedVariables.Add(key, fn);
+            else
+                return false;
+
+            return true;
+        }
+
+        public bool RemoveVar(string key)
+        {
+            if (watchedVariables.Keys.Contains(key))
+                watchedVariables.Remove(key);
+            else
+                return false;
+
+            return true;
+        }
+
+        public void AddRange(Dictionary<string, watchDelegate> range)
+        {
+            foreach (var pair in range)
+            {
+                AddVar(pair.Key, pair.Value);
+            }
+        }
+
+        public void RemoveRange(Dictionary<string, watchDelegate> range)
+        {
+            foreach (var pair in range)
+            {
+                RemoveVar(pair.Key);
+            }
         }
     }
 }

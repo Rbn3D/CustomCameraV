@@ -50,10 +50,17 @@
     <Reference Include="System.Xaml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Scripts\CustomCameraV.cs" />
+    <Compile Include="Camera\CustomCamera.cs" />
+    <Compile Include="Camera\DriverSeatCamera.cs" />
+    <Compile Include="Camera\LegacyCamera.cs" />
+    <Compile Include="Camera\SmoothCamera.cs" />
+    <Compile Include="Camera\ThirdPersonCamera.cs" />
+    <Compile Include="Helper\InputR.cs" />
+    <Compile Include="Helper\MathR.cs" />
+    <Compile Include="Helper\Time.cs" />
+    <Compile Include="Script\CustomCameraV.cs" />
     <Compile Include="Easing\Easing.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Scripts\CustomCameraVLowUpdate.cs" />
     <Compile Include="Transform\Transform.cs" />
     <Compile Include="Tween\Ease.cs" />
     <Compile Include="Tween\GlideInfo.cs" />
@@ -61,10 +68,12 @@
     <Compile Include="Tween\Tween.cs" />
     <Compile Include="Tween\Tweener.cs" />
     <Compile Include="UI\DebugPanel.cs" />
+    <Compile Include="UI\UIex.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>copy "$(TargetPath)" "D:\SteamLibrary\steamapps\common\Grand Theft Auto V\scripts\$(ProjectName).dll"</PostBuildEvent>
+    <PostBuildEvent>copy "$(TargetPath)" "D:\SteamLibrary\steamapps\common\Grand Theft Auto V\scripts\$(ProjectName).dll"
+copy "$(TargetPath)" "D:\Trabajo\Dev\GTA V Custom camera\dist"</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
